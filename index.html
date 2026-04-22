@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
+  <title>Судоку: Код Порядка</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <h1 class="brand">Судоку: Код Порядка</h1>
+        <p class="subtitle">Лёгкая браузерная головоломка с жизнями, заметками и прогрессом.</p>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label">Время</span>
+          <span id="timeValue" class="stat-value">00:00</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Жизни</span>
+          <span id="livesValue" class="stat-value lives">❤ ❤ ❤</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Монеты</span>
+          <span id="coinsValue" class="stat-value">120</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="game-shell">
+      <aside class="side side-left">
+        <div class="side-card">
+          <div class="side-title">Сложность</div>
+          <div id="difficultyList" class="difficulty-list"></div>
+        </div>
+
+        <div class="side-card">
+          <div class="side-title">Прогресс</div>
+          <div id="progressList" class="progress-list"></div>
+        </div>
+      </aside>
+
+      <main class="center">
+        <div class="toolbar">
+          <button id="newGameBtn" class="tool-btn primary">Новая игра</button>
+          <button id="notesBtn" class="tool-btn">Заметки: выкл</button>
+          <button id="eraseBtn" class="tool-btn">Стереть</button>
+          <button id="clearNotesBtn" class="tool-btn">Очистить заметки</button>
+          <button id="solveBtn" class="tool-btn subtle">Решение</button>
+        </div>
+
+        <div class="board-head">
+          <div>
+            <div id="boardTitle" class="board-title">Лёгкий · поле 9×9</div>
+            <div id="boardSubtitle" class="board-subtitle">Заполни поле без повторений.</div>
+          </div>
+        </div>
+
+        <div id="boardWrap" class="board-wrap">
+          <div id="board" class="board"></div>
+        </div>
+
+        <div id="numberPad" class="number-pad"></div>
+      </main>
+    </section>
+  </div>
+
+  <div id="overlay" class="overlay hidden"></div>
+
+  <div id="gameOverModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2>Жизни закончились</h2>
+      <p class="modal-text">
+        Можно продолжить за монеты или начать заново.
+      </p>
+
+      <div class="modal-info">
+        <div class="modal-info-item">
+          <span>Монеты</span>
+          <strong id="modalCoinsValue">120</strong>
+        </div>
+        <div class="modal-info-item">
+          <span>Цена</span>
+          <strong>50</strong>
+        </div>
+      </div>
+
+      <p class="modal-note">
+        Сейчас это заглушка под будущую монетизацию Яндекс Игр.
+      </p>
+
+      <div class="modal-actions">
+        <button id="buyLifeBtn" class="tool-btn primary">Купить +1 жизнь</button>
+        <button id="restartFromLoseBtn" class="tool-btn danger">Рестарт</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="winModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2>Уровень пройден</h2>
+      <p id="winText" class="modal-text">
+        Отлично. Сложность отмечена в прогрессе.
+      </p>
+
+      <div class="modal-actions">
+        <button id="nextDifficultyBtn" class="tool-btn primary">Следующая сложность</button>
+        <button id="restartAfterWinBtn" class="tool-btn">Играть снова</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
