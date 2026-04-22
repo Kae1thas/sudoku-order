@@ -14,7 +14,7 @@
     <header class="topbar">
       <div class="brand-wrap">
         <h1 class="brand">Судоку: Код Порядка</h1>
-        <p class="subtitle">Лёгкая браузерная головоломка с жизнями, заметками и прогрессом.</p>
+        <p class="subtitle">Лёгкая браузерная головоломка с жизнями, подсказками и постепенным прогрессом.</p>
       </div>
 
       <div class="stats">
@@ -52,7 +52,8 @@
           <button id="notesBtn" class="tool-btn">Заметки: выкл</button>
           <button id="eraseBtn" class="tool-btn">Стереть</button>
           <button id="clearNotesBtn" class="tool-btn">Очистить заметки</button>
-          <button id="solveBtn" class="tool-btn subtle">Решение</button>
+          <button id="hintBtn" class="tool-btn">Подсказка</button>
+          <button id="surrenderBtn" class="tool-btn subtle">Сдаться</button>
         </div>
 
         <div class="board-head">
@@ -60,6 +61,7 @@
             <div id="boardTitle" class="board-title">Лёгкий · поле 9×9</div>
             <div id="boardSubtitle" class="board-subtitle">Заполни поле без повторений.</div>
           </div>
+          <div id="hintMeta" class="hint-meta">1-я подсказка бесплатно</div>
         </div>
 
         <div id="boardWrap" class="board-wrap">
@@ -106,12 +108,25 @@
     <div class="modal-card">
       <h2>Уровень пройден</h2>
       <p id="winText" class="modal-text">
-        Отлично. Сложность отмечена в прогрессе.
+        Отлично. Победа засчитана в прогресс.
       </p>
 
       <div class="modal-actions">
         <button id="nextDifficultyBtn" class="tool-btn primary">Следующая сложность</button>
         <button id="restartAfterWinBtn" class="tool-btn">Играть снова</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="surrenderModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2>Ты сдался</h2>
+      <p class="modal-text">
+        Поле раскрыто полностью. Это поражение, но можешь спокойно посмотреть решение.
+      </p>
+
+      <div class="modal-actions">
+        <button id="restartAfterSurrenderBtn" class="tool-btn primary">Новая игра</button>
       </div>
     </div>
   </div>

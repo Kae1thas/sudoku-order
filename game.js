@@ -1,6 +1,6 @@
 const STORAGE_KEYS = {
   coins: "sudoku_order_coins",
-  progress: "sudoku_order_progress",
+  progress: "sudoku_order_progress_v2",
 };
 
 const DIFFICULTIES = [
@@ -11,6 +11,7 @@ const DIFFICULTIES = [
     removeCount: 34,
     reward: 30,
     description: "Спокойный старт и ровное поле 9×9.",
+    unlockWinsRequired: 0,
   },
   {
     id: "medium",
@@ -19,6 +20,7 @@ const DIFFICULTIES = [
     removeCount: 42,
     reward: 45,
     description: "Чуть плотнее и требовательнее.",
+    unlockWinsRequired: 5,
   },
   {
     id: "hard",
@@ -27,6 +29,7 @@ const DIFFICULTIES = [
     removeCount: 50,
     reward: 60,
     description: "Меньше подсказок, больше риска.",
+    unlockWinsRequired: 5,
   },
   {
     id: "expert",
@@ -35,6 +38,7 @@ const DIFFICULTIES = [
     removeCount: 96,
     reward: 100,
     description: "Большое поле 16×16 с символами 1–G.",
+    unlockWinsRequired: 5,
   },
   {
     id: "abyss",
@@ -43,6 +47,7 @@ const DIFFICULTIES = [
     removeCount: 122,
     reward: 140,
     description: "Тяжёлый режим 16×16 для упорных.",
+    unlockWinsRequired: 5,
   },
 ];
 
@@ -72,6 +77,8 @@ const state = {
   timerId: null,
   coins: loadCoins(),
   progress: loadProgress(),
+  hintsUsedThisGame: 0,
+  surrendered: false,
 };
 
 const dom = {
@@ -79,6 +86,7 @@ const dom = {
   boardWrap: document.getElementById("boardWrap"),
   boardTitle: document.getElementById("boardTitle"),
   boardSubtitle: document.getElementById("boardSubtitle"),
+  hintMeta: document.getElementById("hintMeta"),
   timeValue: document.getElementById("timeValue"),
   livesValue: document.getElementById("livesValue"),
   coinsValue: document.getElementById("coinsValue"),
@@ -90,14 +98,17 @@ const dom = {
   newGameBtn: document.getElementById("newGameBtn"),
   eraseBtn: document.getElementById("eraseBtn"),
   clearNotesBtn: document.getElementById("clearNotesBtn"),
-  solveBtn: document.getElementById("solveBtn"),
+  hintBtn: document.getElementById("hintBtn"),
+  surrenderBtn: document.getElementById("surrenderBtn"),
   overlay: document.getElementById("overlay"),
   gameOverModal: document.getElementById("gameOverModal"),
   winModal: document.getElementById("winModal"),
+  surrenderModal: document.getElementById("surrenderModal"),
   buyLifeBtn: document.getElementById("buyLifeBtn"),
   restartFromLoseBtn: document.getElementById("restartFromLoseBtn"),
   nextDifficultyBtn: document.getElementById("nextDifficultyBtn"),
   restartAfterWinBtn: document.getElementById("restartAfterWinBtn"),
+  restartAfterSurrenderBtn: document.getElementById("restartAfterSurrenderBtn"),
   winText: document.getElementById("winText"),
 };
 
@@ -114,11 +125,31 @@ function saveCoins() {
 function loadProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.progress);
-    if (!raw) return {};
+    if (!raw) {
+      return {
+        easy: 0,
+        medium: 0,
+        hard: 0,
+        expert: 0,
+        abyss: 0,
+      };
+    }
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return {
+      easy: Number(parsed.easy) || 0,
+      medium: Number(parsed.medium) || 0,
+      hard: Number(parsed.hard) || 0,
+      expert: Number(parsed.expert) || 0,
+      abyss: Number(parsed.abyss) || 0,
+    };
   } catch {
-    return {};
+    return {
+      easy: 0,
+      medium: 0,
+      hard: 0,
+      expert: 0,
+      abyss: 0,
+    };
   }
 }
 
@@ -132,6 +163,28 @@ function getCurrentDifficulty() {
 
 function getSymbols(size) {
   return SYMBOL_SETS[size];
+}
+
+function getPrevDifficulty(index) {
+  if (index <= 0) return null;
+  return DIFFICULTIES[index - 1];
+}
+
+function isDifficultyUnlocked(index) {
+  if (index === 0) return true;
+  const prev = getPrevDifficulty(index);
+  if (!prev) return true;
+  return (state.progress[prev.id] || 0) >= 5;
+}
+
+function getDifficultyProgressText(index) {
+  if (index === 0) {
+    return `${state.progress.easy || 0}/5`;
+  }
+
+  const prev = getPrevDifficulty(index);
+  const current = state.progress[prev.id] || 0;
+  return `${Math.min(current, 5)}/5`;
 }
 
 function shuffle(array) {
@@ -171,7 +224,6 @@ function generateSolvedBoard(size) {
   });
 
   const shuffledSymbols = shuffle(symbols);
-
   return rows.map((r) => cols.map((c) => shuffledSymbols[pattern(r, c, base)]));
 }
 
@@ -250,7 +302,7 @@ function updateResponsiveCellSize() {
   if (size === 16) {
     document.documentElement.style.setProperty("--cell-size", window.innerWidth < 760 ? "28px" : "40px");
   } else {
-    document.documentElement.style.setProperty("--cell-size", window.innerWidth < 760 ? "38px" : "54px");
+    document.documentElement.style.setProperty("--cell-size", window.innerWidth < 430 ? "34px" : window.innerWidth < 760 ? "38px" : "54px");
   }
 }
 
@@ -261,10 +313,13 @@ function initGame() {
   state.selected = null;
   state.notesMode = false;
   state.timerSeconds = 0;
+  state.hintsUsedThisGame = 0;
+  state.surrendered = false;
   updateTimerText();
   updateLives();
   updateCoins();
   updateNotesButton();
+  updateHintMeta();
   stopTimer();
 
   const diff = getCurrentDifficulty();
@@ -288,23 +343,33 @@ function updateBoardTexts() {
   dom.boardSubtitle.textContent = diff.description;
 }
 
+function updateHintMeta() {
+  if (state.hintsUsedThisGame === 0) {
+    dom.hintMeta.textContent = "1-я подсказка бесплатно";
+  } else {
+    dom.hintMeta.textContent = `Следующая подсказка: 25 монет`;
+  }
+}
+
 function renderDifficultyList() {
   dom.difficultyList.innerHTML = "";
 
   DIFFICULTIES.forEach((diff, index) => {
+    const unlocked = isDifficultyUnlocked(index);
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = `difficulty-item ${index === state.difficultyIndex ? "active" : ""}`;
+    btn.className = `difficulty-item ${index === state.difficultyIndex ? "active" : ""} ${unlocked ? "" : "locked"}`;
     btn.innerHTML = `
       <div class="difficulty-main">
         <div>
           <div class="difficulty-name">${diff.title}</div>
           <div class="difficulty-meta">${diff.size}×${diff.size}</div>
         </div>
-        <div class="difficulty-badge">${diff.reward} мон.</div>
+        <div class="difficulty-badge">${unlocked ? `${diff.reward} мон.` : `${getDifficultyProgressText(index)}`}</div>
       </div>
     `;
     btn.addEventListener("click", () => {
+      if (!unlocked) return;
       state.difficultyIndex = index;
       initGame();
     });
@@ -315,17 +380,19 @@ function renderDifficultyList() {
 function renderProgress() {
   dom.progressList.innerHTML = "";
 
-  DIFFICULTIES.forEach((diff) => {
+  DIFFICULTIES.forEach((diff, index) => {
     const item = document.createElement("div");
-    const done = Boolean(state.progress[diff.id]);
-    item.className = `progress-item ${done ? "done" : ""}`;
+    const wins = state.progress[diff.id] || 0;
+    const unlocked = isDifficultyUnlocked(index);
+    const fullyOpened = index === 0 || unlocked;
+    item.className = `progress-item ${wins > 0 ? "done" : ""}`;
     item.innerHTML = `
       <div class="progress-main">
         <div>
           <div class="progress-name">${diff.title}</div>
-          <div class="progress-meta">${diff.size}×${diff.size}</div>
+          <div class="progress-meta">${fullyOpened ? `Побед: ${wins}` : `Нужно открыть`}</div>
         </div>
-        <div class="progress-badge">${done ? "Готово" : "—"}</div>
+        <div class="progress-badge">${fullyOpened ? `${Math.min(wins, 999)}` : `${getDifficultyProgressText(index)}`}</div>
       </div>
     `;
     dom.progressList.appendChild(item);
@@ -386,11 +453,8 @@ function renderBoard() {
 
       if (state.selected && row === state.selected.row && col === state.selected.col) {
         cell.classList.add("selected");
-      }
-
-      if (
+      } else if (
         state.selected &&
-        (row !== state.selected.row || col !== state.selected.col) &&
         isRelatedCell(row, col, state.selected.row, state.selected.col)
       ) {
         cell.classList.add("related");
@@ -458,7 +522,11 @@ function renderNumberPad() {
   const size = state.board.length;
   const symbols = getSymbols(size);
   dom.numberPad.innerHTML = "";
-  dom.numberPad.style.gridTemplateColumns = `repeat(${size <= 9 ? 5 : 8}, 1fr)`;
+
+  dom.numberPad.style.gridTemplateColumns =
+    size <= 9
+      ? (window.innerWidth < 760 ? "repeat(3, minmax(0, 1fr))" : "repeat(9, minmax(0, 1fr))")
+      : (window.innerWidth < 760 ? "repeat(4, minmax(0, 1fr))" : "repeat(8, minmax(0, 1fr))");
 
   symbols.forEach((symbol) => {
     const btn = document.createElement("button");
@@ -625,12 +693,55 @@ function clearSelectedNotes() {
   renderBoard();
 }
 
-function solveBoard() {
+function useHint() {
+  if (state.gameOver) return;
+
+  const price = state.hintsUsedThisGame === 0 ? 0 : 25;
+  if (price > 0 && state.coins < price) {
+    alert("Недостаточно монет для подсказки.");
+    return;
+  }
+
+  const candidates = [];
+  for (let row = 0; row < state.board.length; row += 1) {
+    for (let col = 0; col < state.board.length; col += 1) {
+      if (state.board[row][col] !== state.solution[row][col]) {
+        candidates.push({ row, col });
+      }
+    }
+  }
+
+  if (!candidates.length) return;
+
+  const target = shuffle(candidates)[0];
+  const { row, col } = target;
+
+  if (price > 0) {
+    state.coins -= price;
+    saveCoins();
+    updateCoins();
+  }
+
+  state.board[row][col] = state.solution[row][col];
+  state.notes[row][col].clear();
+  state.selected = { row, col };
+  state.hintsUsedThisGame += 1;
+  updateHintMeta();
+  renderBoard();
+  renderNumberPad();
+  checkWin();
+}
+
+function surrenderGame() {
+  if (state.gameOver) return;
+  state.surrendered = true;
+  state.gameOver = true;
+  stopTimer();
   state.board = deepCopyGrid(state.solution);
   state.notes = createEmptyNotes(state.board.length);
   renderBoard();
   renderNumberPad();
-  checkWin(true);
+  showModal(dom.surrenderModal);
 }
 
 function loseGame() {
@@ -639,7 +750,7 @@ function loseGame() {
   showModal(dom.gameOverModal);
 }
 
-function checkWin(force = false) {
+function checkWin() {
   const size = state.board.length;
 
   for (let row = 0; row < size; row += 1) {
@@ -650,22 +761,29 @@ function checkWin(force = false) {
     }
   }
 
-  if (!force) {
-    const diff = getCurrentDifficulty();
-    state.progress[diff.id] = true;
-    saveProgress();
+  const diff = getCurrentDifficulty();
+  state.progress[diff.id] = (state.progress[diff.id] || 0) + 1;
+  saveProgress();
 
-    state.coins += diff.reward;
-    saveCoins();
-    updateCoins();
-    renderProgress();
-  }
+  state.coins += diff.reward;
+  saveCoins();
+  updateCoins();
+  renderProgress();
+  renderDifficultyList();
 
   state.gameOver = true;
   stopTimer();
 
-  const diff = getCurrentDifficulty();
-  dom.winText.textContent = `Сложность «${diff.title}» пройдена. ${force ? "Решение показано." : `Получено ${diff.reward} монет.`}`;
+  const nextIndex = Math.min(state.difficultyIndex + 1, DIFFICULTIES.length - 1);
+  const nextUnlocked = isDifficultyUnlocked(nextIndex);
+  const unlockText =
+    nextIndex !== state.difficultyIndex && nextUnlocked
+      ? ` Новая сложность «${DIFFICULTIES[nextIndex].title}» открыта.`
+      : "";
+
+  dom.winText.textContent =
+    `Сложность «${diff.title}» пройдена. Получено ${diff.reward} монет. Побед на этом уровне: ${state.progress[diff.id]}.${unlockText}`;
+
   showModal(dom.winModal);
 }
 
@@ -678,6 +796,7 @@ function hideAllModals() {
   dom.overlay.classList.add("hidden");
   dom.gameOverModal.classList.add("hidden");
   dom.winModal.classList.add("hidden");
+  dom.surrenderModal.classList.add("hidden");
 }
 
 function buyLife() {
@@ -697,7 +816,10 @@ function buyLife() {
 }
 
 function goToNextDifficulty() {
-  state.difficultyIndex = Math.min(state.difficultyIndex + 1, DIFFICULTIES.length - 1);
+  const nextIndex = Math.min(state.difficultyIndex + 1, DIFFICULTIES.length - 1);
+  if (isDifficultyUnlocked(nextIndex)) {
+    state.difficultyIndex = nextIndex;
+  }
   initGame();
 }
 
@@ -711,12 +833,14 @@ function bindEvents() {
   dom.newGameBtn.addEventListener("click", initGame);
   dom.eraseBtn.addEventListener("click", eraseSelected);
   dom.clearNotesBtn.addEventListener("click", clearSelectedNotes);
-  dom.solveBtn.addEventListener("click", solveBoard);
+  dom.hintBtn.addEventListener("click", useHint);
+  dom.surrenderBtn.addEventListener("click", surrenderGame);
 
   dom.buyLifeBtn.addEventListener("click", buyLife);
   dom.restartFromLoseBtn.addEventListener("click", initGame);
   dom.nextDifficultyBtn.addEventListener("click", goToNextDifficulty);
   dom.restartAfterWinBtn.addEventListener("click", initGame);
+  dom.restartAfterSurrenderBtn.addEventListener("click", initGame);
 
   document.addEventListener("keydown", (event) => {
     if (event.key.toLowerCase() === "n") {
@@ -743,6 +867,7 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     updateResponsiveCellSize();
     renderBoard();
+    renderNumberPad();
   });
 }
 

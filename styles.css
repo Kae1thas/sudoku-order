@@ -1,23 +1,47 @@
 :root {
   --bg: #101625;
-  --bg-2: #151d31;
   --panel: #1b243a;
   --panel-2: #202b44;
-  --line: #425076;
-  --line-strong: #91a5db;
+
   --text: #eef3ff;
-  --muted: #b4c0df;
+  --muted: #b5c1de;
+
   --accent: #78a8ff;
   --accent-2: #8dc0ff;
-  --success: #39c679;
+  --success: #38c978;
   --danger: #ff6a6a;
   --warning: #ffd45f;
-  --cell: #12192b;
-  --cell-alt: #17203a;
-  --fixed: #283450;
-  --same: rgba(57, 198, 121, 0.24);
-  --related: rgba(120, 168, 255, 0.18);
-  --selected: rgba(255, 212, 95, 0.2);
+
+  --line: #5f719c;
+  --line-soft: #495b82;
+  --line-strong: #9aacde;
+
+  /* базовые клетки */
+  --cell-a: #1a2440;
+  --cell-b: #202c4b;
+
+  /* текст */
+  --cell-fixed-text: #f5f8ff;
+  --cell-editable-text: #9fc3ff;
+
+  /* логика приоритета цветов как в примере:
+     1) related — самый светлый
+     2) selected — темнее
+     3) same-value — самый тёмный */
+  --related-bg-a: #31456f;
+  --related-bg-b: #38507d;
+
+  --selected-bg-a: #4f4633;
+  --selected-bg-b: #5a5039;
+  --selected-ring: #ffd45f;
+
+  --same-bg-a: #162b34;
+  --same-bg-b: #1a3240;
+  --same-ring: #39d084;
+
+  --invalid-bg: rgba(255, 106, 106, 0.18);
+  --invalid-text: #ffe0e0;
+
   --shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
   --radius: 16px;
   --cell-size: 54px;
@@ -33,7 +57,7 @@ body {
   min-height: 100%;
   background:
     radial-gradient(circle at top left, rgba(120, 168, 255, 0.12), transparent 22%),
-    radial-gradient(circle at top right, rgba(57, 198, 121, 0.1), transparent 18%),
+    radial-gradient(circle at top right, rgba(57, 198, 121, 0.08), transparent 18%),
     var(--bg);
   color: var(--text);
   font-family: Inter, Arial, sans-serif;
@@ -161,10 +185,11 @@ button {
     transform 0.16s ease,
     background 0.16s ease,
     border-color 0.16s ease,
-    box-shadow 0.16s ease;
+    box-shadow 0.16s ease,
+    opacity 0.16s ease;
 }
 
-.difficulty-item:hover {
+.difficulty-item:hover:not(.locked) {
   transform: translateY(-1px);
   background: rgba(120, 168, 255, 0.08);
   border-color: rgba(120, 168, 255, 0.28);
@@ -174,13 +199,18 @@ button {
 .tool-btn:active,
 .number-btn:active,
 .cell:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
 .difficulty-item.active {
   background: rgba(120, 168, 255, 0.14);
   border-color: rgba(120, 168, 255, 0.45);
   box-shadow: 0 0 0 1px rgba(120, 168, 255, 0.2) inset;
+}
+
+.difficulty-item.locked {
+  opacity: 0.58;
+  cursor: not-allowed;
 }
 
 .difficulty-main,
@@ -232,8 +262,8 @@ button {
 }
 
 .toolbar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   border-radius: 14px;
   padding: 8px;
@@ -245,7 +275,7 @@ button {
   background: #2c3858;
   color: var(--text);
   border-radius: 12px;
-  padding: 11px 14px;
+  padding: 11px 10px;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
@@ -289,6 +319,7 @@ button {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  gap: 12px;
 }
 
 .board-title {
@@ -300,6 +331,13 @@ button {
   color: var(--muted);
   font-size: 13px;
   margin-top: 4px;
+}
+
+.hint-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .board-wrap {
@@ -314,13 +352,13 @@ button {
   width: max-content;
   margin: 0 auto;
   border: 3px solid var(--line-strong);
-  background: #0d1323;
+  background: #11192d;
 }
 
 .cell {
   width: var(--cell-size);
   height: var(--cell-size);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -330,57 +368,75 @@ button {
   cursor: pointer;
   user-select: none;
   transition:
-    background 0.16s ease,
+    background 0.14s ease,
     transform 0.12s ease,
-    color 0.16s ease,
-    box-shadow 0.16s ease;
+    color 0.14s ease,
+    box-shadow 0.14s ease,
+    border-color 0.14s ease;
 }
 
 .cell.sector-a {
-  background: var(--cell);
+  background: var(--cell-a);
 }
 
 .cell.sector-b {
-  background: var(--cell-alt);
+  background: var(--cell-a);
 }
 
 .cell.fixed {
-  background: var(--fixed);
-  color: #f5f8ff;
+  color: var(--cell-fixed-text);
 }
 
 .cell.editable {
-  color: #89bbff;
+  color: var(--cell-editable-text);
 }
 
+/* 1. Самый светлый — зона выбора */
+.cell.related.sector-a {
+  background: var(--related-bg-a) !important;
+}
+
+.cell.related.sector-b {
+  background: var(--related-bg-b) !important;
+}
+
+/* 2. Темнее — выбранная клетка */
 .cell.selected {
-  background: var(--selected) !important;
-  box-shadow: inset 0 0 0 2px var(--warning);
+  background: var(--selected-bg-a) !important;
+  box-shadow: inset 0 0 0 2px var(--selected-ring);
 }
 
-.cell.related {
-  background: var(--related) !important;
+.cell.selected.sector-b {
+  background: var(--selected-bg-b) !important;
 }
 
+/* 3. Самый тёмный — одинаковые цифры */
 .cell.same-value {
-  background: var(--same) !important;
+  background: var(--same-bg-a) !important;
+  box-shadow: inset 0 0 0 2px var(--same-ring);
+}
+
+.cell.same-value.sector-b {
+  background: var(--same-bg-b) !important;
+}
+
+/* если выбранная клетка одновременно совпадает по числу — приоритет выбора */
+.cell.selected.same-value {
+  background: var(--selected-bg-a) !important;
+  box-shadow: inset 0 0 0 2px var(--selected-ring);
+}
+
+.cell.selected.same-value.sector-b {
+  background: var(--selected-bg-b) !important;
 }
 
 .cell.invalid {
-  background: rgba(255, 106, 106, 0.2) !important;
-  color: #ffe0e0 !important;
+  background: var(--invalid-bg) !important;
+  color: var(--invalid-text) !important;
   animation: shake 0.18s linear 2;
 }
 
-.cell.notes-mode-preview::after {
-  content: "";
-  position: absolute;
-  inset: 6px;
-  border: 1px dashed rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  pointer-events: none;
-}
-
+/* Явное разграничение 3x3 / 4x4 */
 .cell.thick-top {
   border-top: 3px solid var(--line-strong);
 }
@@ -395,6 +451,15 @@ button {
 
 .cell.thick-bottom {
   border-bottom: 3px solid var(--line-strong);
+}
+
+.cell.notes-mode-preview::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  pointer-events: none;
 }
 
 .notes-grid {
@@ -418,6 +483,7 @@ button {
   gap: 8px;
   padding: 8px;
   border-radius: 14px;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
 }
 
 .number-btn {
@@ -585,6 +651,19 @@ button {
     font-size: 25px;
   }
 
+  .toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .board-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .number-pad {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   :root {
     --cell-size: 38px;
   }
@@ -598,7 +677,21 @@ button {
   }
 
   .number-btn {
-    min-height: 48px;
+    min-height: 52px;
     font-size: 19px;
+  }
+}
+
+@media (max-width: 430px) {
+  .toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .number-pad {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :root {
+    --cell-size: 34px;
   }
 }
