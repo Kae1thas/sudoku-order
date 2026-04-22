@@ -734,16 +734,19 @@ function useHint() {
 
 function surrenderGame() {
   if (state.gameOver) return;
+
   state.surrendered = true;
   state.gameOver = true;
   stopTimer();
+
   state.board = deepCopyGrid(state.solution);
   state.notes = createEmptyNotes(state.board.length);
   renderBoard();
   renderNumberPad();
-  showModal(dom.surrenderModal);
-}
 
+  dom.overlay.classList.add("hidden");
+  dom.surrenderModal.classList.remove("hidden");
+}
 function loseGame() {
   state.gameOver = true;
   stopTimer();
@@ -774,21 +777,34 @@ function checkWin() {
   state.gameOver = true;
   stopTimer();
 
+  const winsOnCurrent = state.progress[diff.id] || 0;
   const nextIndex = Math.min(state.difficultyIndex + 1, DIFFICULTIES.length - 1);
-  const nextUnlocked = isDifficultyUnlocked(nextIndex);
-  const unlockText =
-    nextIndex !== state.difficultyIndex && nextUnlocked
-      ? ` Новая сложность «${DIFFICULTIES[nextIndex].title}» открыта.`
-      : "";
+  const hasNext = nextIndex > state.difficultyIndex;
+  const nextUnlocked = hasNext ? isDifficultyUnlocked(nextIndex) : false;
 
   dom.winText.textContent =
-    `Сложность «${diff.title}» пройдена. Получено ${diff.reward} монет. Побед на этом уровне: ${state.progress[diff.id]}.${unlockText}`;
+    `Сложность «${diff.title}» пройдена. Получено ${diff.reward} монет. Побед на этом уровне: ${winsOnCurrent}.`;
+
+  if (hasNext && nextUnlocked && winsOnCurrent >= 5) {
+    dom.nextDifficultyBtn.textContent = "Открыть следующий уровень";
+    dom.nextDifficultyBtn.classList.remove("hidden");
+    dom.restartAfterWinBtn.classList.add("hidden");
+  } else {
+    dom.nextDifficultyBtn.classList.add("hidden");
+    dom.restartAfterWinBtn.classList.remove("hidden");
+    dom.restartAfterWinBtn.textContent = "Играть снова";
+  }
 
   showModal(dom.winModal);
 }
 
 function showModal(modal) {
-  dom.overlay.classList.remove("hidden");
+  if (modal === dom.surrenderModal) {
+    dom.overlay.classList.add("hidden");
+  } else {
+    dom.overlay.classList.remove("hidden");
+  }
+
   modal.classList.remove("hidden");
 }
 
@@ -817,7 +833,7 @@ function buyLife() {
 
 function goToNextDifficulty() {
   const nextIndex = Math.min(state.difficultyIndex + 1, DIFFICULTIES.length - 1);
-  if (isDifficultyUnlocked(nextIndex)) {
+  if (isDifficultyUnlocked(nextIndex) && nextIndex !== state.difficultyIndex) {
     state.difficultyIndex = nextIndex;
   }
   initGame();
