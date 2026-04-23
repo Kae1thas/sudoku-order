@@ -14,7 +14,7 @@
     <header class="topbar">
       <div class="brand-wrap">
         <h1 class="brand">Судоку: Код Порядка</h1>
-        <p class="subtitle">Лёгкая браузерная головоломка с жизнями, подсказками и постепенным прогрессом.</p>
+        <p class="subtitle">Лёгкая браузерная головоломка с классическим и бесконечным режимом.</p>
       </div>
 
       <div class="stats">
@@ -23,8 +23,8 @@
           <span id="timeValue" class="stat-value">00:00</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Жизни</span>
-          <span id="livesValue" class="stat-value lives">❤ ❤ ❤</span>
+          <span id="modeStatLabel" class="stat-label">Жизни</span>
+          <span id="modeValue" class="stat-value lives">❤ ❤ ❤</span>
         </div>
         <div class="stat">
           <span class="stat-label">Монеты</span>
@@ -37,6 +37,29 @@
       <aside class="side side-left">
         <div class="side-card">
           <div class="side-title">Сложность</div>
+
+          <div class="side-control-stack">
+            <button id="themeBtn" class="difficulty-item side-wide-btn" type="button">
+              <div class="difficulty-main">
+                <div>
+                  <div class="difficulty-name">Тема</div>
+                  <div id="themeBtnMeta" class="difficulty-meta">Переключение светлой и тёмной темы</div>
+                </div>
+                <div id="themeBtnBadge" class="difficulty-badge">Тёмная</div>
+              </div>
+            </button>
+
+            <button id="modeBtn" class="difficulty-item side-wide-btn mode-switch" type="button">
+              <div class="difficulty-main">
+                <div>
+                  <div class="difficulty-name">Бесконечный режим</div>
+                  <div id="modeBtnMeta" class="difficulty-meta">Станет доступен после 5 побед на этой сложности</div>
+                </div>
+                <div id="modeBtnBadge" class="difficulty-badge">Закрыт</div>
+              </div>
+            </button>
+          </div>
+
           <div id="difficultyList" class="difficulty-list"></div>
         </div>
 
@@ -112,7 +135,7 @@
       </p>
 
       <div class="modal-actions">
-        <button id="nextDifficultyBtn" class="tool-btn primary">Следующая сложность</button>
+        <button id="nextDifficultyBtn" class="tool-btn primary">Открыть следующий уровень</button>
         <button id="restartAfterWinBtn" class="tool-btn">Играть снова</button>
       </div>
     </div>
@@ -127,6 +150,20 @@
 
       <div class="modal-actions">
         <button id="restartAfterSurrenderBtn" class="tool-btn primary">Новая игра</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="endlessResultModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2>Бесконечный режим</h2>
+      <p id="endlessResultText" class="modal-text">
+        Поле заполнено.
+      </p>
+
+      <div class="modal-actions">
+        <button id="continueEndlessBtn" class="tool-btn">Продолжить исправлять</button>
+        <button id="restartAfterEndlessBtn" class="tool-btn primary">Новая игра</button>
       </div>
     </div>
   </div>

@@ -1,6 +1,6 @@
 const STORAGE_KEYS = {
   coins: "sudoku_order_coins",
-  progress: "sudoku_order_progress_v2",
+  progress: "sudoku_order_progress_v4",
 };
 
 const DIFFICULTIES = [
@@ -79,6 +79,7 @@ const state = {
   progress: loadProgress(),
   hintsUsedThisGame: 0,
   surrendered: false,
+  isEndless: false,
 };
 
 const dom = {
@@ -88,7 +89,8 @@ const dom = {
   boardSubtitle: document.getElementById("boardSubtitle"),
   hintMeta: document.getElementById("hintMeta"),
   timeValue: document.getElementById("timeValue"),
-  livesValue: document.getElementById("livesValue"),
+  modeStatLabel: document.getElementById("modeStatLabel"),
+  modeValue: document.getElementById("modeValue"),
   coinsValue: document.getElementById("coinsValue"),
   modalCoinsValue: document.getElementById("modalCoinsValue"),
   difficultyList: document.getElementById("difficultyList"),
@@ -96,6 +98,12 @@ const dom = {
   numberPad: document.getElementById("numberPad"),
   notesBtn: document.getElementById("notesBtn"),
   newGameBtn: document.getElementById("newGameBtn"),
+  modeBtn: document.getElementById("modeBtn"),
+  modeBtnMeta: document.getElementById("modeBtnMeta"),
+  modeBtnBadge: document.getElementById("modeBtnBadge"),
+  themeBtn: document.getElementById("themeBtn"),
+  themeBtnMeta: document.getElementById("themeBtnMeta"),
+  themeBtnBadge: document.getElementById("themeBtnBadge"),
   eraseBtn: document.getElementById("eraseBtn"),
   clearNotesBtn: document.getElementById("clearNotesBtn"),
   hintBtn: document.getElementById("hintBtn"),
@@ -104,6 +112,10 @@ const dom = {
   gameOverModal: document.getElementById("gameOverModal"),
   winModal: document.getElementById("winModal"),
   surrenderModal: document.getElementById("surrenderModal"),
+  endlessResultModal: document.getElementById("endlessResultModal"),
+  endlessResultText: document.getElementById("endlessResultText"),
+  continueEndlessBtn: document.getElementById("continueEndlessBtn"),
+  restartAfterEndlessBtn: document.getElementById("restartAfterEndlessBtn"),
   buyLifeBtn: document.getElementById("buyLifeBtn"),
   restartFromLoseBtn: document.getElementById("restartFromLoseBtn"),
   nextDifficultyBtn: document.getElementById("nextDifficultyBtn"),
@@ -122,17 +134,21 @@ function saveCoins() {
   localStorage.setItem(STORAGE_KEYS.coins, String(state.coins));
 }
 
+function getEmptyProgress() {
+  return {
+    easy: 0,
+    medium: 0,
+    hard: 0,
+    expert: 0,
+    abyss: 0,
+  };
+}
+
 function loadProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.progress);
     if (!raw) {
-      return {
-        easy: 0,
-        medium: 0,
-        hard: 0,
-        expert: 0,
-        abyss: 0,
-      };
+      return getEmptyProgress();
     }
     const parsed = JSON.parse(raw);
     return {
@@ -143,13 +159,7 @@ function loadProgress() {
       abyss: Number(parsed.abyss) || 0,
     };
   } catch {
-    return {
-      easy: 0,
-      medium: 0,
-      hard: 0,
-      expert: 0,
-      abyss: 0,
-    };
+    return getEmptyProgress();
   }
 }
 
@@ -177,9 +187,18 @@ function isDifficultyUnlocked(index) {
   return (state.progress[prev.id] || 0) >= 5;
 }
 
+function isEndlessUnlockedForIndex(index) {
+  const diff = DIFFICULTIES[index];
+  return (state.progress[diff.id] || 0) >= 5;
+}
+
+function isCurrentEndlessUnlocked() {
+  return isEndlessUnlockedForIndex(state.difficultyIndex);
+}
+
 function getDifficultyProgressText(index) {
   if (index === 0) {
-    return `${state.progress.easy || 0}/5`;
+    return `${Math.min(state.progress.easy || 0, 5)}/5`;
   }
 
   const prev = getPrevDifficulty(index);
@@ -249,7 +268,175 @@ function getSubgridBounds(size, row, col) {
   };
 }
 
-function generatePuzzle(solution, removeCount, difficultyId) {
+function getMinClueConfig(difficultyId) {
+  switch (difficultyId) {
+    case "easy":
+      return { row: 3, col: 3, box: 3 };
+    case "medium":
+      return { row: 2, col: 2, box: 2 };
+    case "hard":
+      return { row: 1, col: 1, box: 1 };
+    default:
+      return { row: 1, col: 1, box: 1 };
+  }
+}
+
+function passesClueDistribution(board, config) {
+  const size = board.length;
+  const sub = SUBGRID_MAP[size];
+
+  for (let row = 0; row < size; row += 1) {
+    let count = 0;
+    for (let col = 0; col < size; col += 1) {
+      if (board[row][col] !== "") count += 1;
+    }
+    if (count < config.row) return false;
+  }
+
+  for (let col = 0; col < size; col += 1) {
+    let count = 0;
+    for (let row = 0; row < size; row += 1) {
+      if (board[row][col] !== "") count += 1;
+    }
+    if (count < config.col) return false;
+  }
+
+  for (let boxRow = 0; boxRow < size; boxRow += sub.rows) {
+    for (let boxCol = 0; boxCol < size; boxCol += sub.cols) {
+      let count = 0;
+      for (let row = boxRow; row < boxRow + sub.rows; row += 1) {
+        for (let col = boxCol; col < boxCol + sub.cols; col += 1) {
+          if (board[row][col] !== "") count += 1;
+        }
+      }
+      if (count < config.box) return false;
+    }
+  }
+
+  return true;
+}
+
+function getCandidates9x9(board, row, col) {
+  if (board[row][col] !== "") return [];
+
+  const symbols = SYMBOL_SETS[9];
+  const used = new Set();
+
+  for (let i = 0; i < 9; i += 1) {
+    if (board[row][i] !== "") used.add(board[row][i]);
+    if (board[i][col] !== "") used.add(board[i][col]);
+  }
+
+  const startRow = Math.floor(row / 3) * 3;
+  const startCol = Math.floor(col / 3) * 3;
+
+  for (let r = startRow; r < startRow + 3; r += 1) {
+    for (let c = startCol; c < startCol + 3; c += 1) {
+      if (board[r][c] !== "") used.add(board[r][c]);
+    }
+  }
+
+  return symbols.filter((symbol) => !used.has(symbol));
+}
+
+function findBestEmptyCell9x9(board) {
+  let best = null;
+
+  for (let row = 0; row < 9; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      if (board[row][col] !== "") continue;
+      const candidates = getCandidates9x9(board, row, col);
+
+      if (candidates.length === 0) return { row, col, candidates };
+      if (!best || candidates.length < best.candidates.length) {
+        best = { row, col, candidates };
+      }
+    }
+  }
+
+  return best;
+}
+
+function countSolutions9x9(board, limit = 2) {
+  let count = 0;
+
+  function backtrack() {
+    if (count >= limit) return;
+
+    const next = findBestEmptyCell9x9(board);
+    if (!next) {
+      count += 1;
+      return;
+    }
+
+    const { row, col, candidates } = next;
+    if (candidates.length === 0) return;
+
+    for (const candidate of candidates) {
+      board[row][col] = candidate;
+      backtrack();
+      board[row][col] = "";
+      if (count >= limit) return;
+    }
+  }
+
+  backtrack();
+  return count;
+}
+
+function generateUniquePuzzle9x9(solution, removeCount, difficultyId) {
+  const board = deepCopyGrid(solution);
+  const config = getMinClueConfig(difficultyId);
+  const cells = shuffle(
+    Array.from({ length: 81 }, (_, index) => ({
+      row: Math.floor(index / 9),
+      col: index % 9,
+    }))
+  );
+
+  let removed = 0;
+
+  for (const { row, col } of cells) {
+    if (removed >= removeCount) break;
+
+    const backup = board[row][col];
+    board[row][col] = "";
+
+    if (!passesClueDistribution(board, config)) {
+      board[row][col] = backup;
+      continue;
+    }
+
+    const solutions = countSolutions9x9(deepCopyGrid(board), 2);
+    if (solutions === 1) {
+      removed += 1;
+    } else {
+      board[row][col] = backup;
+    }
+  }
+
+  if (removed < removeCount) {
+    const leftovers = shuffle(cells.filter(({ row, col }) => board[row][col] !== ""));
+
+    for (const { row, col } of leftovers) {
+      if (removed >= removeCount) break;
+
+      const backup = board[row][col];
+      board[row][col] = "";
+
+      const solutions = countSolutions9x9(deepCopyGrid(board), 2);
+      if (solutions === 1) {
+        removed += 1;
+      } else {
+        board[row][col] = backup;
+      }
+    }
+  }
+
+  return board;
+}
+
+function generateBalancedPuzzle(solution, removeCount) {
   const size = solution.length;
   const board = deepCopyGrid(solution);
   const cells = [];
@@ -260,41 +447,23 @@ function generatePuzzle(solution, removeCount, difficultyId) {
     }
   }
 
-  if (size === 9 && difficultyId === "easy") {
-    const sub = SUBGRID_MAP[size];
-    const perBoxBase = Math.floor(removeCount / size);
-    let remaining = removeCount;
-
-    for (let boxRow = 0; boxRow < size; boxRow += sub.rows) {
-      for (let boxCol = 0; boxCol < size; boxCol += sub.cols) {
-        const boxCells = [];
-        for (let r = boxRow; r < boxRow + sub.rows; r += 1) {
-          for (let c = boxCol; c < boxCol + sub.cols; c += 1) {
-            boxCells.push({ row: r, col: c });
-          }
-        }
-
-        const take = Math.min(perBoxBase, remaining);
-        shuffle(boxCells).slice(0, take).forEach(({ row, col }) => {
-          board[row][col] = "";
-          remaining -= 1;
-        });
-      }
-    }
-
-    const leftovers = shuffle(cells.filter(({ row, col }) => board[row][col] !== ""));
-    leftovers.slice(0, remaining).forEach(({ row, col }) => {
+  shuffle(cells)
+    .slice(0, removeCount)
+    .forEach(({ row, col }) => {
       board[row][col] = "";
     });
 
-    return board;
+  return board;
+}
+
+function generatePuzzle(solution, removeCount, difficultyId) {
+  const size = solution.length;
+
+  if (size === 9) {
+    return generateUniquePuzzle9x9(solution, removeCount, difficultyId);
   }
 
-  shuffle(cells).slice(0, removeCount).forEach(({ row, col }) => {
-    board[row][col] = "";
-  });
-
-  return board;
+  return generateBalancedPuzzle(solution, removeCount);
 }
 
 function updateResponsiveCellSize() {
@@ -303,6 +472,53 @@ function updateResponsiveCellSize() {
     document.documentElement.style.setProperty("--cell-size", window.innerWidth < 760 ? "28px" : "40px");
   } else {
     document.documentElement.style.setProperty("--cell-size", window.innerWidth < 430 ? "34px" : window.innerWidth < 760 ? "38px" : "54px");
+  }
+}
+
+function updateModeButton() {
+  const diff = getCurrentDifficulty();
+  const unlocked = isCurrentEndlessUnlocked();
+
+  if (!unlocked) {
+    dom.modeBtn.disabled = true;
+    dom.modeBtn.classList.remove("active");
+    dom.modeBtn.classList.add("locked");
+    dom.modeBtnMeta.textContent = `Станет доступен после 5 побед на сложности «${diff.title}»`;
+    dom.modeBtnBadge.textContent = "Закрыт";
+    return;
+  }
+
+  dom.modeBtn.disabled = false;
+  dom.modeBtn.classList.remove("locked");
+  dom.modeBtnMeta.textContent = `Для «${diff.title}» — без жизней, ошибки считаются после заполнения`;
+
+  if (state.isEndless) {
+    dom.modeBtn.classList.add("active");
+    dom.modeBtnBadge.textContent = "Вкл";
+  } else {
+    dom.modeBtn.classList.remove("active");
+    dom.modeBtnBadge.textContent = "Выкл";
+  }
+}
+
+function updateThemeButton() {
+  const current = document.body.getAttribute("data-theme") || "dark";
+  dom.themeBtn.classList.add("theme-switch");
+  dom.themeBtn.classList.add("active");
+  dom.themeBtnMeta.textContent = "Переключение светлой и тёмной темы";
+  dom.themeBtnBadge.textContent = current === "light" ? "Светлая" : "Тёмная";
+}
+
+function updateSecondaryStat() {
+  if (state.isEndless) {
+    dom.modeStatLabel.textContent = "Режим";
+    dom.modeValue.textContent = "∞";
+    dom.modeValue.classList.remove("lives");
+  } else {
+    dom.modeStatLabel.textContent = "Жизни";
+    const hearts = Array.from({ length: Math.max(state.lives, 0) }, () => "❤").join(" ");
+    dom.modeValue.textContent = hearts || "—";
+    dom.modeValue.classList.add("lives");
   }
 }
 
@@ -315,11 +531,18 @@ function initGame() {
   state.timerSeconds = 0;
   state.hintsUsedThisGame = 0;
   state.surrendered = false;
+
+  if (state.isEndless && !isCurrentEndlessUnlocked()) {
+    state.isEndless = false;
+  }
+
   updateTimerText();
-  updateLives();
   updateCoins();
   updateNotesButton();
   updateHintMeta();
+  updateModeButton();
+  updateThemeButton();
+  updateSecondaryStat();
   stopTimer();
 
   const diff = getCurrentDifficulty();
@@ -339,8 +562,11 @@ function initGame() {
 
 function updateBoardTexts() {
   const diff = getCurrentDifficulty();
-  dom.boardTitle.textContent = `${diff.title} · поле ${diff.size}×${diff.size}`;
-  dom.boardSubtitle.textContent = diff.description;
+  const modeText = state.isEndless ? " · бесконечный" : "";
+  dom.boardTitle.textContent = `${diff.title} · поле ${diff.size}×${diff.size}${modeText}`;
+  dom.boardSubtitle.textContent = state.isEndless
+    ? `${diff.description} Без жизней: ошибки считаются после полного заполнения.`
+    : diff.description;
 }
 
 function updateHintMeta() {
@@ -371,6 +597,9 @@ function renderDifficultyList() {
     btn.addEventListener("click", () => {
       if (!unlocked) return;
       state.difficultyIndex = index;
+      if (state.isEndless && !isCurrentEndlessUnlocked()) {
+        state.isEndless = false;
+      }
       initGame();
     });
     dom.difficultyList.appendChild(btn);
@@ -385,6 +614,8 @@ function renderProgress() {
     const wins = state.progress[diff.id] || 0;
     const unlocked = isDifficultyUnlocked(index);
     const fullyOpened = index === 0 || unlocked;
+    const endlessText = wins >= 5 ? "∞ открыт" : `${Math.min(wins, 5)}/5 до ∞`;
+
     item.className = `progress-item ${wins > 0 ? "done" : ""}`;
     item.innerHTML = `
       <div class="progress-main">
@@ -392,7 +623,7 @@ function renderProgress() {
           <div class="progress-name">${diff.title}</div>
           <div class="progress-meta">${fullyOpened ? `Побед: ${wins}` : `Нужно открыть`}</div>
         </div>
-        <div class="progress-badge">${fullyOpened ? `${Math.min(wins, 999)}` : `${getDifficultyProgressText(index)}`}</div>
+        <div class="progress-badge">${fullyOpened ? endlessText : `${getDifficultyProgressText(index)}`}</div>
       </div>
     `;
     dom.progressList.appendChild(item);
@@ -453,10 +684,7 @@ function renderBoard() {
 
       if (state.selected && row === state.selected.row && col === state.selected.col) {
         cell.classList.add("selected");
-      } else if (
-        state.selected &&
-        isRelatedCell(row, col, state.selected.row, state.selected.col)
-      ) {
+      } else if (state.selected && isRelatedCell(row, col, state.selected.row, state.selected.col)) {
         cell.classList.add("related");
       }
 
@@ -586,11 +814,6 @@ function stopTimer() {
   }
 }
 
-function updateLives() {
-  const hearts = Array.from({ length: Math.max(state.lives, 0) }, () => "❤").join(" ");
-  dom.livesValue.textContent = hearts || "—";
-}
-
 function updateCoins() {
   dom.coinsValue.textContent = String(state.coins);
   dom.modalCoinsValue.textContent = String(state.coins);
@@ -625,8 +848,60 @@ function toggleNote(row, col, symbol) {
   }
 }
 
+function isBoardFilled() {
+  for (let row = 0; row < state.board.length; row += 1) {
+    for (let col = 0; col < state.board.length; col += 1) {
+      if (state.board[row][col] === "") {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function countBoardErrors() {
+  let errors = 0;
+
+  for (let row = 0; row < state.board.length; row += 1) {
+    for (let col = 0; col < state.board.length; col += 1) {
+      if (state.board[row][col] !== state.solution[row][col]) {
+        errors += 1;
+      }
+    }
+  }
+
+  return errors;
+}
+
+function checkEndlessCompletion() {
+  if (!isBoardFilled()) return;
+
+  const errors = countBoardErrors();
+
+  if (errors === 0) {
+    state.gameOver = true;
+    stopTimer();
+    dom.endlessResultText.textContent = "Поле заполнено без ошибок. Это чистое прохождение бесконечного режима.";
+    dom.continueEndlessBtn.classList.add("hidden");
+    showModal(dom.endlessResultModal);
+    return;
+  }
+
+  dom.endlessResultText.textContent = `Поле заполнено. Ошибок: ${errors}. Можешь продолжить исправлять или начать заново.`;
+  dom.continueEndlessBtn.classList.remove("hidden");
+  showModal(dom.endlessResultModal);
+}
+
 function setCellValue(row, col, value) {
   state.notes[row][col].clear();
+
+  if (state.isEndless) {
+    state.board[row][col] = value;
+    renderBoard();
+    renderNumberPad();
+    checkEndlessCompletion();
+    return;
+  }
 
   if (value === state.solution[row][col]) {
     state.board[row][col] = value;
@@ -648,12 +923,12 @@ function setCellValue(row, col, value) {
   }, 380);
 
   state.lives -= 1;
-  updateLives();
+  updateSecondaryStat();
   renderNumberPad();
 
   if (state.lives <= 0) {
     state.lives = 0;
-    updateLives();
+    updateSecondaryStat();
     loseGame();
   }
 }
@@ -729,7 +1004,12 @@ function useHint() {
   updateHintMeta();
   renderBoard();
   renderNumberPad();
-  checkWin();
+
+  if (state.isEndless) {
+    checkEndlessCompletion();
+  } else {
+    checkWin();
+  }
 }
 
 function surrenderGame() {
@@ -747,6 +1027,7 @@ function surrenderGame() {
   dom.overlay.classList.add("hidden");
   dom.surrenderModal.classList.remove("hidden");
 }
+
 function loseGame() {
   state.gameOver = true;
   stopTimer();
@@ -773,6 +1054,7 @@ function checkWin() {
   updateCoins();
   renderProgress();
   renderDifficultyList();
+  updateModeButton();
 
   state.gameOver = true;
   stopTimer();
@@ -813,6 +1095,7 @@ function hideAllModals() {
   dom.gameOverModal.classList.add("hidden");
   dom.winModal.classList.add("hidden");
   dom.surrenderModal.classList.add("hidden");
+  dom.endlessResultModal.classList.add("hidden");
 }
 
 function buyLife() {
@@ -825,7 +1108,7 @@ function buyLife() {
   state.lives += 1;
   saveCoins();
   updateCoins();
-  updateLives();
+  updateSecondaryStat();
   state.gameOver = false;
   hideAllModals();
   startTimer();
@@ -836,7 +1119,35 @@ function goToNextDifficulty() {
   if (isDifficultyUnlocked(nextIndex) && nextIndex !== state.difficultyIndex) {
     state.difficultyIndex = nextIndex;
   }
+  state.isEndless = false;
   initGame();
+}
+
+function toggleGameMode() {
+  if (!isCurrentEndlessUnlocked()) {
+    const diff = getCurrentDifficulty();
+    alert(`Бесконечный режим для сложности «${diff.title}» откроется после 5 побед на ней.`);
+    return;
+  }
+
+  state.isEndless = !state.isEndless;
+  initGame();
+}
+
+function continueEndlessEditing() {
+  hideAllModals();
+  state.gameOver = false;
+}
+
+function applyTheme(theme) {
+  document.body.setAttribute("data-theme", theme);
+  localStorage.setItem("sudoku_theme", theme);
+  updateThemeButton();
+}
+
+function initTheme() {
+  const saved = localStorage.getItem("sudoku_theme") || "dark";
+  applyTheme(saved);
 }
 
 function bindEvents() {
@@ -847,6 +1158,12 @@ function bindEvents() {
   });
 
   dom.newGameBtn.addEventListener("click", initGame);
+  dom.modeBtn.addEventListener("click", toggleGameMode);
+  dom.themeBtn.addEventListener("click", () => {
+    const current = document.body.getAttribute("data-theme") || "dark";
+    applyTheme(current === "light" ? "dark" : "light");
+  });
+
   dom.eraseBtn.addEventListener("click", eraseSelected);
   dom.clearNotesBtn.addEventListener("click", clearSelectedNotes);
   dom.hintBtn.addEventListener("click", useHint);
@@ -857,6 +1174,8 @@ function bindEvents() {
   dom.nextDifficultyBtn.addEventListener("click", goToNextDifficulty);
   dom.restartAfterWinBtn.addEventListener("click", initGame);
   dom.restartAfterSurrenderBtn.addEventListener("click", initGame);
+  dom.continueEndlessBtn.addEventListener("click", continueEndlessEditing);
+  dom.restartAfterEndlessBtn.addEventListener("click", initGame);
 
   document.addEventListener("keydown", (event) => {
     if (event.key.toLowerCase() === "n") {
@@ -887,5 +1206,6 @@ function bindEvents() {
   });
 }
 
+initTheme();
 bindEvents();
 initGame();
