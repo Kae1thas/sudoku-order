@@ -208,7 +208,7 @@ body[data-theme="light"] .lives {
 
 .game-shell {
   display: grid;
-  grid-template-columns: 220px minmax(560px, 1fr);
+  grid-template-columns: 240px minmax(560px, 1fr);
   gap: 16px;
 }
 

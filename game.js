@@ -132,6 +132,7 @@ function loadCoins() {
 
 function saveCoins() {
   localStorage.setItem(STORAGE_KEYS.coins, String(state.coins));
+  syncYandexSave();
 }
 
 function getEmptyProgress() {
@@ -165,6 +166,7 @@ function loadProgress() {
 
 function saveProgress() {
   localStorage.setItem(STORAGE_KEYS.progress, JSON.stringify(state.progress));
+  syncYandexSave();
 }
 
 function getCurrentDifficulty() {
@@ -1143,6 +1145,7 @@ function applyTheme(theme) {
   document.body.setAttribute("data-theme", theme);
   localStorage.setItem("sudoku_theme", theme);
   updateThemeButton();
+  syncYandexSave();
 }
 
 function initTheme() {
@@ -1206,6 +1209,49 @@ function bindEvents() {
   });
 }
 
-initTheme();
-bindEvents();
-initGame();
+async function syncYandexSave() {
+  if (!window.YandexStorage) return;
+
+  const theme = localStorage.getItem("sudoku_theme") || "dark";
+
+  await window.YandexStorage.saveGameState({
+    coins: state.coins,
+    progress: state.progress,
+    theme,
+  });
+}
+
+async function bootstrapGame() {
+  if (window.YandexStorage) {
+    await window.YandexStorage.init();
+  }
+
+  const defaultTheme = localStorage.getItem("sudoku_theme") || "dark";
+
+  const defaultState = {
+    coins: loadCoins(),
+    progress: loadProgress(),
+    theme: defaultTheme,
+  };
+
+  if (window.YandexStorage) {
+    const loaded = await window.YandexStorage.loadGameState(defaultState);
+
+    state.coins = loaded.coins;
+    state.progress = loaded.progress;
+
+    localStorage.setItem(STORAGE_KEYS.coins, String(loaded.coins));
+    localStorage.setItem(STORAGE_KEYS.progress, JSON.stringify(loaded.progress));
+    localStorage.setItem("sudoku_theme", loaded.theme);
+  }
+
+  initTheme();
+  bindEvents();
+  initGame();
+
+  if (window.YandexStorage) {
+    await window.YandexStorage.ready();
+  }
+}
+
+bootstrapGame();
