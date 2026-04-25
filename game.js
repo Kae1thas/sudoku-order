@@ -75,11 +75,13 @@ const state = {
   gameOver: false,
   timerSeconds: 0,
   timerId: null,
+  timerStarted: false,
   coins: loadCoins(),
   progress: loadProgress(),
   hintsUsedThisGame: 0,
   surrendered: false,
   isEndless: false,
+  debugUnlockAll: false,
 };
 
 const dom = {
@@ -183,6 +185,8 @@ function getPrevDifficulty(index) {
 }
 
 function isDifficultyUnlocked(index) {
+  if (state.debugUnlockAll) return true;
+
   if (index === 0) return true;
   const prev = getPrevDifficulty(index);
   if (!prev) return true;
@@ -190,6 +194,8 @@ function isDifficultyUnlocked(index) {
 }
 
 function isEndlessUnlockedForIndex(index) {
+  if (state.debugUnlockAll) return true;
+
   const diff = DIFFICULTIES[index];
   return (state.progress[diff.id] || 0) >= 5;
 }
@@ -470,11 +476,25 @@ function generatePuzzle(solution, removeCount, difficultyId) {
 
 function updateResponsiveCellSize() {
   const size = state.board.length || getCurrentDifficulty().size;
+
   if (size === 16) {
-    document.documentElement.style.setProperty("--cell-size", window.innerWidth < 760 ? "28px" : "40px");
-  } else {
-    document.documentElement.style.setProperty("--cell-size", window.innerWidth < 430 ? "34px" : window.innerWidth < 760 ? "38px" : "54px");
+    const sidePadding = window.innerWidth < 760 ? 48 : 80;
+    const availableWidth = Math.max(window.innerWidth - sidePadding, 280);
+    const maxCellByWidth = Math.floor((availableWidth - 6) / 16);
+
+    const cellSize = Math.max(
+      18,
+      Math.min(maxCellByWidth, window.innerWidth < 760 ? 26 : 40)
+    );
+
+    document.documentElement.style.setProperty("--cell-size", `${cellSize}px`);
+    return;
   }
+
+  document.documentElement.style.setProperty(
+    "--cell-size",
+    window.innerWidth < 430 ? "34px" : window.innerWidth < 760 ? "38px" : "54px"
+  );
 }
 
 function updateModeButton() {
@@ -485,14 +505,14 @@ function updateModeButton() {
     dom.modeBtn.disabled = true;
     dom.modeBtn.classList.remove("active");
     dom.modeBtn.classList.add("locked");
-    dom.modeBtnMeta.textContent = `Станет доступен после 5 побед на сложности «${diff.title}»`;
+    dom.modeBtnMeta.textContent = "Откроется после 5 побед";
     dom.modeBtnBadge.textContent = "Закрыт";
     return;
   }
 
   dom.modeBtn.disabled = false;
   dom.modeBtn.classList.remove("locked");
-  dom.modeBtnMeta.textContent = `Для «${diff.title}» — без жизней, ошибки считаются после заполнения`;
+  dom.modeBtnMeta.textContent = "Без жизней, проверка в конце";
 
   if (state.isEndless) {
     dom.modeBtn.classList.add("active");
@@ -507,7 +527,7 @@ function updateThemeButton() {
   const current = document.body.getAttribute("data-theme") || "dark";
   dom.themeBtn.classList.add("theme-switch");
   dom.themeBtn.classList.add("active");
-  dom.themeBtnMeta.textContent = "Переключение светлой и тёмной темы";
+  //dom.themeBtnMeta.textContent = "Переключение светлой и тёмной темы";
   dom.themeBtnBadge.textContent = current === "light" ? "Светлая" : "Тёмная";
 }
 
@@ -531,6 +551,7 @@ function initGame() {
   state.selected = null;
   state.notesMode = false;
   state.timerSeconds = 0;
+  state.timerStarted = false;
   state.hintsUsedThisGame = 0;
   state.surrendered = false;
 
@@ -559,7 +580,6 @@ function initGame() {
   renderProgress();
   renderBoard();
   renderNumberPad();
-  startTimer();
 }
 
 function updateBoardTexts() {
@@ -895,6 +915,11 @@ function checkEndlessCompletion() {
 }
 
 function setCellValue(row, col, value) {
+  
+  if (!state.timerStarted) {
+    state.timerStarted = true;
+    startTimer();
+  } 
   state.notes[row][col].clear();
 
   if (state.isEndless) {
@@ -1181,6 +1206,19 @@ function bindEvents() {
   dom.restartAfterEndlessBtn.addEventListener("click", initGame);
 
   document.addEventListener("keydown", (event) => {
+
+    if (event.key.toLowerCase() === "o") {
+      state.debugUnlockAll = !state.debugUnlockAll;
+
+      console.log("DEBUG unlock:", state.debugUnlockAll);
+
+      renderDifficultyList();
+      renderProgress();
+      updateModeButton();
+
+      return;
+    }
+
     if (event.key.toLowerCase() === "n") {
       state.notesMode = !state.notesMode;
       updateNotesButton();

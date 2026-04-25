@@ -169,7 +169,8 @@ button {
 .center,
 .board-wrap,
 .number-pad,
-.toolbar {
+.toolbar,
+.rules-card {
   background: var(--panel);
   border: 1px solid var(--card-border);
   box-shadow: var(--shadow);
@@ -657,6 +658,51 @@ body[data-theme="light"] .number-btn.completed {
   background: linear-gradient(180deg, #41c782, #28a764);
 }
 
+.rules-card {
+  margin-top: 16px;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.rules-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rules-head h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.rules-head span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: var(--soft-fill-3);
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rule-item {
+  min-height: 72px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--soft-fill-2);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -856,6 +902,18 @@ body[data-theme="light"] .modal-card {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .board-wrap {
+    padding: 7px;
+  }
+
+  .rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rule-item {
+    min-height: auto;
+  }
+
   :root {
     --cell-size: 38px;
   }
@@ -888,12 +946,28 @@ body[data-theme="light"] .modal-card {
 }
 
 @media (max-width: 430px) {
+  .board-wrap {
+    padding: 5px;
+  }
+
   .toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .number-pad {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .board-wrap {
+    padding: 7px;
+  }
+
+  .rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rule-item {
+    min-height: auto;
   }
 
   :root {
