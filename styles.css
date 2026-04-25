@@ -108,9 +108,16 @@ body[data-theme="light"] {
 html,
 body {
   margin: 0;
+  width: 100%;
+  height: 100%;
   min-height: 100%;
   color: var(--text);
   font-family: Inter, Arial, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 body {
@@ -124,11 +131,16 @@ body {
 
 button {
   font: inherit;
+  touch-action: manipulation;
 }
 
 .app {
   max-width: 1420px;
+  height: calc(100dvh - 36px);
   margin: 0 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .topbar {
@@ -648,6 +660,17 @@ body[data-theme="light"] .notes-grid {
   background: var(--btn-bg-hover);
 }
 
+.notes-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 8px;
+}
+
+.notes-panel-btn {
+  width: 100%;
+  min-height: 56px;
+}
+
 .number-btn.completed {
   background: linear-gradient(180deg, #36c77b, #229657);
   border-color: rgba(255, 255, 255, 0.14);
@@ -817,6 +840,31 @@ body[data-theme="light"] .modal-card {
   display: none !important;
 }
 
+body.game-paused .board-wrap,
+body.game-paused .number-pad,
+body.game-paused .notes-panel {
+  opacity: 0.62;
+  filter: saturate(0.75);
+}
+
+body.game-paused .board-wrap::after {
+  content: "Пауза";
+  position: absolute;
+  inset: 10px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(6, 10, 18, 0.42);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.board-wrap {
+  position: relative;
+}
+
 @keyframes shake {
   0% { transform: translateX(0); }
   25% { transform: translateX(-2px); }
@@ -856,6 +904,10 @@ body[data-theme="light"] .modal-card {
 @media (max-width: 760px) {
   body {
     padding: 12px;
+  }
+
+  .app {
+    height: calc(100dvh - 24px);
   }
 
   .topbar {
@@ -900,6 +952,10 @@ body[data-theme="light"] .modal-card {
 
   .number-pad {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .notes-panel {
+    grid-template-columns: 1fr;
   }
 
   .board-wrap {

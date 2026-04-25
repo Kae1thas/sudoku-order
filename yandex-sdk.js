@@ -4,6 +4,7 @@ window.YandexStorage = (function () {
   let ysdk = null;
   let player = null;
   let initialized = false;
+  let gameplayActive = false;
 
   function hasSdk() {
     return typeof window !== "undefined"
@@ -48,6 +49,67 @@ window.YandexStorage = (function () {
     } catch (err) {
       console.warn("Ошибка LoadingAPI.ready:", err);
     }
+  }
+
+  async function gameplayStart() {
+    await init();
+
+    if (gameplayActive) return;
+
+    try {
+      ysdk?.features?.GameplayAPI?.start?.();
+      gameplayActive = true;
+    } catch (err) {
+      console.warn("Ошибка GameplayAPI.start:", err);
+    }
+  }
+
+  async function gameplayStop() {
+    await init();
+
+    if (!gameplayActive) return;
+
+    try {
+      ysdk?.features?.GameplayAPI?.stop?.();
+      gameplayActive = false;
+    } catch (err) {
+      console.warn("Ошибка GameplayAPI.stop:", err);
+    }
+  }
+
+  async function bindPlatformPauseHandlers(onPause, onResume) {
+    await init();
+
+    if (!ysdk || typeof ysdk.on !== "function") {
+      return false;
+    }
+
+    try {
+      ysdk.on("game_api_pause", () => {
+        try {
+          onPause?.();
+        } catch (err) {
+          console.warn("Ошибка обработчика game_api_pause:", err);
+        }
+      });
+
+      ysdk.on("game_api_resume", () => {
+        try {
+          onResume?.();
+        } catch (err) {
+          console.warn("Ошибка обработчика game_api_resume:", err);
+        }
+      });
+
+      return true;
+    } catch (err) {
+      console.warn("Не удалось подписаться на события паузы Яндекс Игр:", err);
+      return false;
+    }
+  }
+
+  function getLanguage() {
+    return ysdk?.environment?.i18n?.lang || "ru";
   }
 
   async function getCloudData() {
@@ -111,11 +173,11 @@ window.YandexStorage = (function () {
       const data = cloud[CLOUD_KEY];
 
       if (data.coins !== undefined) {
-        setLocal("sudoku_order_coins", data.coins);
+        localStorage.setItem("sudoku_order_coins", String(data.coins));
       }
 
       if (data.progress !== undefined) {
-        setLocal("sudoku_order_progress_v4", data.progress);
+        localStorage.setItem("sudoku_order_progress_v4", JSON.stringify(data.progress));
       }
 
       if (data.theme !== undefined) {
@@ -141,7 +203,7 @@ window.YandexStorage = (function () {
       },
     };
 
-    await setCloudData(payload, true);
+    return setCloudData(payload, true);
   }
 
   async function openAuthDialog() {
@@ -164,6 +226,10 @@ window.YandexStorage = (function () {
   return {
     init,
     ready,
+    gameplayStart,
+    gameplayStop,
+    bindPlatformPauseHandlers,
+    getLanguage,
     getLocal,
     setLocal,
     loadGameState,

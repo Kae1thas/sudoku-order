@@ -72,7 +72,7 @@
       <main class="center">
         <div class="toolbar">
           <button id="newGameBtn" class="tool-btn primary">Новая игра</button>
-          <button id="notesBtn" class="tool-btn">Заметки: выкл</button>
+          <button id="pauseBtn" class="tool-btn">Пауза</button>
           <button id="eraseBtn" class="tool-btn">Стереть</button>
           <button id="clearNotesBtn" class="tool-btn">Очистить заметки</button>
           <button id="hintBtn" class="tool-btn">Подсказка</button>
@@ -92,6 +92,10 @@
         </div>
 
         <div id="numberPad" class="number-pad"></div>
+
+        <div class="notes-panel">
+          <button id="notesBtn" class="tool-btn notes-panel-btn" type="button">Заметки: выкл</button>
+        </div>
       </main>
     </section>
 
@@ -129,11 +133,11 @@
       </div>
 
       <p class="modal-note">
-        Сейчас это заглушка под будущую монетизацию Яндекс Игр.
+        Продолжение за монеты доступно в рамках игрового прогресса.
       </p>
 
       <div class="modal-actions">
-        <button id="buyLifeBtn" class="tool-btn primary">Купить +1 жизнь</button>
+        <button id="buyLifeBtn" class="tool-btn primary">Продолжить за 50 монет</button>
         <button id="restartFromLoseBtn" class="tool-btn danger">Рестарт</button>
       </div>
     </div>

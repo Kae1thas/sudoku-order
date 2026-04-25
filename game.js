@@ -3,6 +3,8 @@ const STORAGE_KEYS = {
   progress: "sudoku_order_progress_v4",
 };
 
+const DEBUG_MODE = new URLSearchParams(window.location.search).has("debug");
+
 const DIFFICULTIES = [
   {
     id: "easy",
@@ -81,6 +83,8 @@ const state = {
   hintsUsedThisGame: 0,
   surrendered: false,
   isEndless: false,
+  platformPaused: false,
+  userPaused: false,
   debugUnlockAll: false,
 };
 
@@ -100,6 +104,7 @@ const dom = {
   numberPad: document.getElementById("numberPad"),
   notesBtn: document.getElementById("notesBtn"),
   newGameBtn: document.getElementById("newGameBtn"),
+  pauseBtn: document.getElementById("pauseBtn"),
   modeBtn: document.getElementById("modeBtn"),
   modeBtnMeta: document.getElementById("modeBtnMeta"),
   modeBtnBadge: document.getElementById("modeBtnBadge"),
@@ -547,6 +552,8 @@ function updateSecondaryStat() {
 function initGame() {
   hideAllModals();
   state.gameOver = false;
+  state.userPaused = false;
+  updatePauseButton();
   state.lives = 3;
   state.selected = null;
   state.notesMode = false;
@@ -730,6 +737,8 @@ function renderBoard() {
       }
 
       cell.addEventListener("click", () => {
+        if (isGameplayBlocked()) return;
+
         state.selected = { row, col };
         renderBoard();
       });
@@ -819,20 +828,90 @@ function updateTimerText() {
   dom.timeValue.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function isGameplayBlocked() {
+  return state.platformPaused || state.userPaused;
+}
+
+function updatePauseButton() {
+  if (!dom.pauseBtn) return;
+
+  dom.pauseBtn.textContent = state.userPaused ? "Продолжить" : "Пауза";
+  dom.pauseBtn.classList.toggle("active", state.userPaused);
+  document.body.classList.toggle("game-paused", state.userPaused || state.platformPaused);
+}
+
 function startTimer() {
-  stopTimer();
+  if (state.gameOver || isGameplayBlocked() || state.timerId) {
+    return;
+  }
+
   state.timerId = setInterval(() => {
-    if (!state.gameOver) {
+    if (!state.gameOver && !isGameplayBlocked()) {
       state.timerSeconds += 1;
       updateTimerText();
     }
   }, 1000);
+
+  window.YandexStorage?.gameplayStart?.();
 }
 
 function stopTimer() {
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
+  }
+
+  window.YandexStorage?.gameplayStop?.();
+}
+
+function pauseGameFromPlatform() {
+  state.platformPaused = true;
+
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+
+  window.YandexStorage?.gameplayStop?.();
+}
+
+function resumeGameFromPlatform() {
+  state.platformPaused = false;
+  updatePauseButton();
+
+  if (state.timerStarted && !state.gameOver && !isGameplayBlocked()) {
+    startTimer();
+  }
+}
+
+function pauseGameFromUser() {
+  if (state.gameOver) return;
+
+  state.userPaused = true;
+
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+
+  window.YandexStorage?.gameplayStop?.();
+  updatePauseButton();
+}
+
+function resumeGameFromUser() {
+  state.userPaused = false;
+  updatePauseButton();
+
+  if (state.timerStarted && !state.gameOver && !isGameplayBlocked()) {
+    startTimer();
+  }
+}
+
+function toggleUserPause() {
+  if (state.userPaused) {
+    resumeGameFromUser();
+  } else {
+    pauseGameFromUser();
   }
 }
 
@@ -842,7 +921,7 @@ function updateCoins() {
 }
 
 function handleSymbolInput(symbol) {
-  if (!state.selected || state.gameOver) return;
+  if (!state.selected || state.gameOver || isGameplayBlocked()) return;
 
   const { row, col } = state.selected;
   if (state.fixed[row][col]) {
@@ -969,7 +1048,7 @@ function markCellInvalid(row, col) {
 }
 
 function eraseSelected() {
-  if (!state.selected || state.gameOver) return;
+  if (!state.selected || state.gameOver || isGameplayBlocked()) return;
 
   const { row, col } = state.selected;
   if (state.fixed[row][col]) return;
@@ -986,7 +1065,7 @@ function eraseSelected() {
 }
 
 function clearSelectedNotes() {
-  if (!state.selected || state.gameOver) return;
+  if (!state.selected || state.gameOver || isGameplayBlocked()) return;
 
   const { row, col } = state.selected;
   if (state.fixed[row][col]) return;
@@ -996,7 +1075,7 @@ function clearSelectedNotes() {
 }
 
 function useHint() {
-  if (state.gameOver) return;
+  if (state.gameOver || isGameplayBlocked()) return;
 
   const price = state.hintsUsedThisGame === 0 ? 0 : 25;
   if (price > 0 && state.coins < price) {
@@ -1040,7 +1119,7 @@ function useHint() {
 }
 
 function surrenderGame() {
-  if (state.gameOver) return;
+  if (state.gameOver || isGameplayBlocked()) return;
 
   state.surrendered = true;
   state.gameOver = true;
@@ -1164,6 +1243,10 @@ function toggleGameMode() {
 function continueEndlessEditing() {
   hideAllModals();
   state.gameOver = false;
+
+  if (state.timerStarted && !isGameplayBlocked()) {
+    startTimer();
+  }
 }
 
 function applyTheme(theme) {
@@ -1180,12 +1263,15 @@ function initTheme() {
 
 function bindEvents() {
   dom.notesBtn.addEventListener("click", () => {
+    if (isGameplayBlocked()) return;
+
     state.notesMode = !state.notesMode;
     updateNotesButton();
     renderBoard();
   });
 
   dom.newGameBtn.addEventListener("click", initGame);
+  dom.pauseBtn.addEventListener("click", toggleUserPause);
   dom.modeBtn.addEventListener("click", toggleGameMode);
   dom.themeBtn.addEventListener("click", () => {
     const current = document.body.getAttribute("data-theme") || "dark";
@@ -1206,8 +1292,7 @@ function bindEvents() {
   dom.restartAfterEndlessBtn.addEventListener("click", initGame);
 
   document.addEventListener("keydown", (event) => {
-
-    if (event.key.toLowerCase() === "o") {
+    if (event.key.toLowerCase() === "o" && DEBUG_MODE) {
       state.debugUnlockAll = !state.debugUnlockAll;
 
       console.log("DEBUG unlock:", state.debugUnlockAll);
@@ -1216,6 +1301,10 @@ function bindEvents() {
       renderProgress();
       updateModeButton();
 
+      return;
+    }
+
+    if (isGameplayBlocked()) {
       return;
     }
 
@@ -1245,6 +1334,18 @@ function bindEvents() {
     renderBoard();
     renderNumberPad();
   });
+
+  document.addEventListener("contextmenu", (event) => {
+    if (event.target.closest(".app")) {
+      event.preventDefault();
+    }
+  });
+
+  document.addEventListener("touchmove", (event) => {
+    if (!event.target.closest(".app")) {
+      event.preventDefault();
+    }
+  }, { passive: false });
 }
 
 async function syncYandexSave() {
@@ -1262,6 +1363,12 @@ async function syncYandexSave() {
 async function bootstrapGame() {
   if (window.YandexStorage) {
     await window.YandexStorage.init();
+    await window.YandexStorage.bindPlatformPauseHandlers?.(pauseGameFromPlatform, resumeGameFromPlatform);
+
+    const sdkLang = window.YandexStorage.getLanguage?.();
+    if (sdkLang) {
+      document.documentElement.lang = sdkLang;
+    }
   }
 
   const defaultTheme = localStorage.getItem("sudoku_theme") || "dark";
