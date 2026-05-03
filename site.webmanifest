@@ -1,0 +1,22 @@
+{
+  "name": "Судоку: Код Порядка",
+  "short_name": "Судоку",
+  "description": "Лёгкая браузерная головоломка с классическим и бесконечным режимом.",
+  "icons": [
+    {
+      "src": "android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#1a1a2e",
+  "background_color": "#1a1a2e",
+  "display": "standalone",
+  "start_url": "."
+}
