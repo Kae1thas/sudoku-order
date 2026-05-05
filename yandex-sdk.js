@@ -4,6 +4,7 @@ window.YandexStorage = (function () {
   let ysdk = null;
   let player = null;
   let initialized = false;
+  let sdkLang = null;
 
   function hasSdk() {
     return typeof window !== "undefined"
@@ -23,6 +24,15 @@ window.YandexStorage = (function () {
 
     try {
       ysdk = await window.YaGames.init();
+
+      try {
+        // Важно для debug-панели Яндекс Игр: язык должен быть получен через SDK
+        // во время запуска, а не после начала игрового процесса.
+        sdkLang = ysdk?.environment?.i18n?.lang || null;
+      } catch (err) {
+        console.warn("Не удалось прочитать язык SDK:", err);
+        sdkLang = null;
+      }
 
       try {
         player = await ysdk.getPlayer();
@@ -194,7 +204,7 @@ window.YandexStorage = (function () {
   }
 
   function getLanguage() {
-    return ysdk?.environment?.i18n?.lang || "ru";
+    return sdkLang || ysdk?.environment?.i18n?.lang || null;
   }
   return {
     init,

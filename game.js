@@ -1,6 +1,7 @@
 const STORAGE_KEYS = {
   coins: "sudoku_order_coins",
   progress: "sudoku_order_progress_v4",
+  lang: "sudoku_order_lang",
 };
 
 const DEBUG_PARAMS = new URLSearchParams(window.location.search);
@@ -10,51 +11,251 @@ const DEBUG_MODE =
   window.location.hash.includes("debug=1") ||
   localStorage.getItem("sudoku_debug") === "1";
 
+const SUPPORTED_LANGS = ["ru", "en"];
+
+function normalizeLang(lang) {
+  const value = String(lang || "ru").toLowerCase().slice(0, 2);
+  return SUPPORTED_LANGS.includes(value) ? value : "en";
+}
+
+function hasExplicitLanguageOverride() {
+  const params = new URLSearchParams(window.location.search);
+  return params.has("lang");
+}
+
+function detectInitialLang() {
+  const params = new URLSearchParams(window.location.search);
+  return normalizeLang(
+    params.get("lang")
+    || localStorage.getItem(STORAGE_KEYS.lang)
+    || document.documentElement.lang
+    || navigator.language
+    || "ru"
+  );
+}
+
+let currentLang = detectInitialLang();
+
+const I18N = {
+  ru: {
+    title: "Судоку Код Порядка",
+    subtitle: "Лёгкая браузерная головоломка с классическим и бесконечным режимом.",
+    time: "Время",
+    coins: "Монеты",
+    price: "Цена",
+    difficulty: "Сложность",
+    theme: "Тема",
+    language: "Язык",
+    langMeta: "Русский / English",
+    langBadge: "RU",
+    endlessMode: "Бесконечный",
+    progress: "Прогресс",
+    newGame: "Новая игра",
+    pause: "Пауза",
+    resume: "Продолжить",
+    erase: "Стереть",
+    clearNotes: "Очистить заметки",
+    hint: "Подсказка",
+    surrender: "Сдаться",
+    rules: "Правила",
+    rule1: "Заполни все пустые клетки символами из нижней панели.",
+    rule2: "В строке, столбце и выделенном блоке символы не должны повторяться.",
+    rule3: "В обычном режиме ошибка снимает жизнь. В бесконечном режиме ошибки считаются после полной проверки.",
+    rule4: "Заметки помогают временно записывать варианты внутри клетки.",
+    gameOverTitle: "Жизни закончились",
+    gameOverText: "Можно продолжить за монеты или начать заново.",
+    gameOverNote: "Продолжение за монеты доступно в рамках игрового прогресса.",
+    buyLife: "Продолжить за 50 монет",
+    restart: "Рестарт",
+    winTitle: "Уровень пройден",
+    winDefaultText: "Отлично. Победа засчитана в прогресс.",
+    nextLevel: "Открыть следующий уровень",
+    playAgain: "Играть снова",
+    surrenderTitle: "Ты сдался",
+    surrenderText: "Поле раскрыто полностью. Это поражение, но можешь спокойно посмотреть решение.",
+    endlessFilled: "Поле заполнено.",
+    continueFixing: "Продолжить исправлять",
+    lives: "Жизни",
+    mode: "Режим",
+    locked: "Закрыт",
+    on: "Вкл",
+    off: "Выкл",
+    lightTheme: "Светлая",
+    darkTheme: "Тёмная",
+    opensAfter5Wins: "После 5 побед",
+    noLivesCheckAtEnd: "Проверка в конце",
+    field: "поле",
+    endlessShort: "бесконечный",
+    endlessSuffix: "Без жизней: ошибки считаются после полного заполнения.",
+    firstHintFree: "1-я подсказка бесплатно",
+    nextHint: "Следующая подсказка: 25 монет",
+    coinsShort: "мон.",
+    endlessOpen: "∞ открыт",
+    toInfinity: "до ∞",
+    wins: "Побед",
+    needUnlock: "Нужно открыть",
+    notesOn: "Заметки: вкл",
+    notesOff: "Заметки: выкл",
+    endlessPerfect: "Поле заполнено без ошибок. Это чистое прохождение бесконечного режима.",
+    endlessErrors: (errors) => `Поле заполнено. Ошибок: ${errors}. Можешь продолжить исправлять или начать заново.`,
+    notEnoughCoinsHint: "Недостаточно монет для подсказки. Нужно 25 монет.",
+    notEnoughCoinsContinue: "Недостаточно монет для продолжения. Нужно 50 монет.",
+    winMessage: (title, reward, wins) => `Сложность «${title}» пройдена. Получено ${reward} монет. Побед на этом уровне: ${wins}.`,
+    endlessLockedMessage: (title) => `Бесконечный режим для сложности «${title}» откроется после 5 побед на ней.`,
+  },
+  en: {
+    title: "Sudoku Code of Order",
+    subtitle: "A light browser puzzle with classic and endless modes.",
+    time: "Time",
+    coins: "Coins",
+    price: "Price",
+    difficulty: "Difficulty",
+    theme: "Theme",
+    language: "Language",
+    langMeta: "Русский / English",
+    langBadge: "EN",
+    endlessMode: "Endless",
+    progress: "Progress",
+    newGame: "New Game",
+    pause: "Pause",
+    resume: "Resume",
+    erase: "Erase",
+    clearNotes: "Clear Notes",
+    hint: "Hint",
+    surrender: "Give Up",
+    rules: "Rules",
+    rule1: "Fill every empty cell with symbols from the lower panel.",
+    rule2: "Symbols must not repeat in any row, column, or highlighted block.",
+    rule3: "In classic mode, mistakes cost lives. In endless mode, mistakes are counted after the final check.",
+    rule4: "Notes help you keep temporary candidates inside cells.",
+    gameOverTitle: "Out of Lives",
+    gameOverText: "You can continue for coins or start over.",
+    gameOverNote: "Continuing for coins is available as part of game progress.",
+    buyLife: "Continue for 50 coins",
+    restart: "Restart",
+    winTitle: "Level Complete",
+    winDefaultText: "Great. The win has been added to your progress.",
+    nextLevel: "Open Next Level",
+    playAgain: "Play Again",
+    surrenderTitle: "You Gave Up",
+    surrenderText: "The board is fully revealed. This counts as a loss, but you can review the solution.",
+    endlessFilled: "The board is filled.",
+    continueFixing: "Keep Fixing",
+    lives: "Lives",
+    mode: "Mode",
+    locked: "Locked",
+    on: "On",
+    off: "Off",
+    lightTheme: "Light",
+    darkTheme: "Dark",
+    opensAfter5Wins: "After 5 wins",
+    noLivesCheckAtEnd: "Final check",
+    field: "board",
+    endlessShort: "endless",
+    endlessSuffix: "No lives: mistakes are counted after the board is filled.",
+    firstHintFree: "1st hint is free",
+    nextHint: "Next hint: 25 coins",
+    coinsShort: "coins",
+    endlessOpen: "∞ open",
+    toInfinity: "to ∞",
+    wins: "Wins",
+    needUnlock: "Locked",
+    notesOn: "Notes: on",
+    notesOff: "Notes: off",
+    endlessPerfect: "The board is complete with no mistakes. This is a clean endless-mode run.",
+    endlessErrors: (errors) => `The board is filled. Mistakes: ${errors}. You can keep fixing it or start over.`,
+    notEnoughCoinsHint: "Not enough coins for a hint. You need 25 coins.",
+    notEnoughCoinsContinue: "Not enough coins to continue. You need 50 coins.",
+    winMessage: (title, reward, wins) => `Difficulty “${title}” complete. You earned ${reward} coins. Wins on this level: ${wins}.`,
+    endlessLockedMessage: (title) => `Endless mode for “${title}” opens after 5 wins on this difficulty.`,
+  },
+};
+
+const DIFFICULTY_I18N = {
+  ru: {
+    easy: { title: "Лёгкий", description: "Спокойный старт и ровное поле 9×9." },
+    medium: { title: "Средний", description: "Чуть плотнее и требовательнее." },
+    hard: { title: "Сложный", description: "Меньше подсказок, больше риска." },
+    expert: { title: "Эксперт", description: "Большое поле 16×16 с символами 1–G." },
+    abyss: { title: "Бездна", description: "Тяжёлый режим 16×16 для упорных." },
+  },
+  en: {
+    easy: { title: "Easy", description: "A calm start on a smooth 9×9 board." },
+    medium: { title: "Medium", description: "A denser and more demanding puzzle." },
+    hard: { title: "Hard", description: "Fewer clues and more risk." },
+    expert: { title: "Expert", description: "A large 16×16 board with symbols 1–G." },
+    abyss: { title: "Abyss", description: "A tough 16×16 mode for persistent players." },
+  },
+};
+
+function t(key, ...args) {
+  const value = I18N[currentLang]?.[key] ?? I18N.ru[key] ?? key;
+  return typeof value === "function" ? value(...args) : value;
+}
+
+function getDifficultyTitle(diff) {
+  return DIFFICULTY_I18N[currentLang]?.[diff.id]?.title
+    ?? DIFFICULTY_I18N.ru[diff.id]?.title
+    ?? diff.title
+    ?? diff.id;
+}
+
+function getDifficultyDescription(diff) {
+  return DIFFICULTY_I18N[currentLang]?.[diff.id]?.description
+    ?? DIFFICULTY_I18N.ru[diff.id]?.description
+    ?? diff.description
+    ?? "";
+}
+
+function applyLanguage(lang) {
+  currentLang = normalizeLang(lang);
+  document.documentElement.lang = currentLang;
+  document.body.dataset.lang = currentLang;
+  document.title = t("title");
+
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    const key = element.getAttribute("data-i18n");
+    if (key) element.textContent = t(key);
+  });
+
+  dom?.boardWrap?.setAttribute("data-pause-label", t("pause"));
+}
+
 
 const DIFFICULTIES = [
   {
     id: "easy",
-    title: "Лёгкий",
     size: 9,
     removeCount: 34,
     reward: 30,
-    description: "Спокойный старт и ровное поле 9×9.",
     unlockWinsRequired: 0,
   },
   {
     id: "medium",
-    title: "Средний",
     size: 9,
     removeCount: 42,
     reward: 45,
-    description: "Чуть плотнее и требовательнее.",
     unlockWinsRequired: 5,
   },
   {
     id: "hard",
-    title: "Сложный",
     size: 9,
     removeCount: 50,
     reward: 60,
-    description: "Меньше подсказок, больше риска.",
     unlockWinsRequired: 5,
   },
   {
     id: "expert",
-    title: "Эксперт",
     size: 16,
     removeCount: 96,
     reward: 100,
-    description: "Большое поле 16×16 с символами 1–G.",
     unlockWinsRequired: 5,
   },
   {
     id: "abyss",
-    title: "Бездна",
     size: 16,
     removeCount: 122,
     reward: 140,
-    description: "Тяжёлый режим 16×16 для упорных.",
     unlockWinsRequired: 5,
   },
 ];
@@ -117,6 +318,9 @@ const dom = {
   themeBtn: document.getElementById("themeBtn"),
   themeBtnMeta: document.getElementById("themeBtnMeta"),
   themeBtnBadge: document.getElementById("themeBtnBadge"),
+  langBtn: document.getElementById("langBtn"),
+  langBtnMeta: document.getElementById("langBtnMeta"),
+  langBtnBadge: document.getElementById("langBtnBadge"),
   eraseBtn: document.getElementById("eraseBtn"),
   clearNotesBtn: document.getElementById("clearNotesBtn"),
   hintBtn: document.getElementById("hintBtn"),
@@ -488,27 +692,40 @@ function generatePuzzle(solution, removeCount, difficultyId) {
 
 function updateResponsiveCellSize() {
   const size = state.board.length || getCurrentDifficulty().size;
+  const isMobile = window.innerWidth < 760;
+  const isSmallPhone = window.innerWidth < 430;
+  const isDesktopShell = window.innerWidth > 1180;
 
-  if (size === 16) {
-    const sidePadding = window.innerWidth < 760 ? 48 : 80;
-    const availableWidth = Math.max(window.innerWidth - sidePadding, 280);
-    const maxCellByWidth = Math.floor((availableWidth - 6) / 16);
+  const appWidth = Math.min(window.innerWidth, 1420);
+  const sideColumnWidth = isDesktopShell ? 252 : 0;
+  const bodyPadding = isMobile ? (isSmallPhone ? 12 : 16) : Math.ceil(window.innerWidth * 0.025);
+  const centerPadding = isMobile ? 16 : 24;
+  const gaps = isDesktopShell ? 14 : 0;
+  const boardChrome = isMobile ? 12 : 22;
 
-    const cellSize = Math.max(
-      18,
-      Math.min(maxCellByWidth, window.innerWidth < 760 ? 26 : 40)
-    );
-
-    document.documentElement.style.setProperty("--cell-size", `${cellSize}px`);
-    return;
-  }
-
-  document.documentElement.style.setProperty(
-    "--cell-size",
-    window.innerWidth < 430 ? "34px" : window.innerWidth < 760 ? "38px" : "54px"
+  const availableWidth = Math.max(
+    appWidth - bodyPadding - sideColumnWidth - centerPadding - gaps - boardChrome,
+    260
   );
-}
 
+  // Запас по высоте намеренно больше, чем кажется нужным: внутри Яндекс Игр
+  // сверху/снизу есть собственные панели, и 16×16 иначе начинает подрезать нижние кнопки.
+  const verticalChrome = isMobile
+    ? (size === 16 ? 360 : 330)
+    : (size === 16 ? 445 : 310);
+  const availableHeight = Math.max(window.innerHeight - bodyPadding - verticalChrome, 220);
+
+  const maxByWidth = Math.floor(availableWidth / size);
+  const maxByHeight = Math.floor(availableHeight / size);
+  const visualMax = size === 16
+    ? (isMobile ? 23 : 34)
+    : (isMobile ? (isSmallPhone ? 31 : 35) : 50);
+  const visualMin = size === 16 ? (isMobile ? 16 : 22) : (isMobile ? 26 : 32);
+
+  const cellSize = Math.max(visualMin, Math.min(maxByWidth, maxByHeight, visualMax));
+  document.documentElement.style.setProperty("--cell-size", `${cellSize}px`);
+  document.body.dataset.boardSize = String(size);
+}
 function updateModeButton() {
   const diff = getCurrentDifficulty();
   const unlocked = isCurrentEndlessUnlocked();
@@ -517,21 +734,21 @@ function updateModeButton() {
     dom.modeBtn.disabled = true;
     dom.modeBtn.classList.remove("active");
     dom.modeBtn.classList.add("locked");
-    dom.modeBtnMeta.textContent = "Откроется после 5 побед";
-    dom.modeBtnBadge.textContent = "Закрыт";
+    dom.modeBtnMeta.textContent = t("opensAfter5Wins");
+    dom.modeBtnBadge.textContent = t("locked");
     return;
   }
 
   dom.modeBtn.disabled = false;
   dom.modeBtn.classList.remove("locked");
-  dom.modeBtnMeta.textContent = "Без жизней, проверка в конце";
+  dom.modeBtnMeta.textContent = t("noLivesCheckAtEnd");
 
   if (state.isEndless) {
     dom.modeBtn.classList.add("active");
-    dom.modeBtnBadge.textContent = "Вкл";
+    dom.modeBtnBadge.textContent = t("on");
   } else {
     dom.modeBtn.classList.remove("active");
-    dom.modeBtnBadge.textContent = "Выкл";
+    dom.modeBtnBadge.textContent = t("off");
   }
 }
 
@@ -540,16 +757,43 @@ function updateThemeButton() {
   dom.themeBtn.classList.add("theme-switch");
   dom.themeBtn.classList.add("active");
   //dom.themeBtnMeta.textContent = "Переключение светлой и тёмной темы";
-  dom.themeBtnBadge.textContent = current === "light" ? "Светлая" : "Тёмная";
+  dom.themeBtnBadge.textContent = current === "light" ? t("lightTheme") : t("darkTheme");
+}
+
+function updateLanguageButton() {
+  if (!dom.langBtn) return;
+  dom.langBtnMeta.textContent = t("langMeta");
+  dom.langBtnBadge.textContent = t("langBadge");
+}
+
+function refreshLanguageInterface() {
+  applyLanguage(currentLang);
+  updateBoardTexts();
+  updateHintMeta();
+  updateModeButton();
+  updateThemeButton();
+  updateLanguageButton();
+  updateSecondaryStat();
+  updateNotesButton();
+  updatePauseButton();
+  renderDifficultyList();
+  renderProgress();
+}
+
+function toggleLanguage() {
+  const nextLang = currentLang === "ru" ? "en" : "ru";
+  localStorage.setItem(STORAGE_KEYS.lang, nextLang);
+  currentLang = nextLang;
+  refreshLanguageInterface();
 }
 
 function updateSecondaryStat() {
   if (state.isEndless) {
-    dom.modeStatLabel.textContent = "Режим";
+    dom.modeStatLabel.textContent = t("mode");
     dom.modeValue.textContent = "∞";
     dom.modeValue.classList.remove("lives");
   } else {
-    dom.modeStatLabel.textContent = "Жизни";
+    dom.modeStatLabel.textContent = t("lives");
     const hearts = Array.from({ length: Math.max(state.lives, 0) }, () => "❤").join(" ");
     dom.modeValue.textContent = hearts || "—";
     dom.modeValue.classList.add("lives");
@@ -579,6 +823,7 @@ function initGame() {
   updateHintMeta();
   updateModeButton();
   updateThemeButton();
+  updateLanguageButton();
   updatePauseButton();
   updateSecondaryStat();
   stopTimer();
@@ -599,18 +844,18 @@ function initGame() {
 
 function updateBoardTexts() {
   const diff = getCurrentDifficulty();
-  const modeText = state.isEndless ? " · бесконечный" : "";
-  dom.boardTitle.textContent = `${diff.title} · поле ${diff.size}×${diff.size}${modeText}`;
+  const modeText = state.isEndless ? ` · ${t("endlessShort")}` : "";
+  dom.boardTitle.textContent = `${getDifficultyTitle(diff)} · ${t("field")} ${diff.size}×${diff.size}${modeText}`;
   dom.boardSubtitle.textContent = state.isEndless
-    ? `${diff.description} Без жизней: ошибки считаются после полного заполнения.`
-    : diff.description;
+    ? `${getDifficultyDescription(diff)} ${t("endlessSuffix")}`
+    : getDifficultyDescription(diff);
 }
 
 function updateHintMeta() {
   if (state.hintsUsedThisGame === 0) {
-    dom.hintMeta.textContent = "1-я подсказка бесплатно";
+    dom.hintMeta.textContent = t("firstHintFree");
   } else {
-    dom.hintMeta.textContent = `Следующая подсказка: 25 монет`;
+    dom.hintMeta.textContent = t("nextHint");
   }
 }
 
@@ -625,10 +870,10 @@ function renderDifficultyList() {
     btn.innerHTML = `
       <div class="difficulty-main">
         <div>
-          <div class="difficulty-name">${diff.title}</div>
+          <div class="difficulty-name">${getDifficultyTitle(diff)}</div>
           <div class="difficulty-meta">${diff.size}×${diff.size}</div>
         </div>
-        <div class="difficulty-badge">${unlocked ? `${diff.reward} мон.` : `${getDifficultyProgressText(index)}`}</div>
+        <div class="difficulty-badge">${unlocked ? `${diff.reward} ${t("coinsShort")}` : `${getDifficultyProgressText(index)}`}</div>
       </div>
     `;
     btn.addEventListener("click", () => {
@@ -651,14 +896,14 @@ function renderProgress() {
     const wins = state.progress[diff.id] || 0;
     const unlocked = isDifficultyUnlocked(index);
     const fullyOpened = index === 0 || unlocked;
-    const endlessText = wins >= 5 ? "∞ открыт" : `${Math.min(wins, 5)}/5 до ∞`;
+    const endlessText = wins >= 5 ? t("endlessOpen") : `${Math.min(wins, 5)}/5 ${t("toInfinity")}`;
 
     item.className = `progress-item ${wins > 0 ? "done" : ""}`;
     item.innerHTML = `
       <div class="progress-main">
         <div>
-          <div class="progress-name">${diff.title}</div>
-          <div class="progress-meta">${fullyOpened ? `Побед: ${wins}` : `Нужно открыть`}</div>
+          <div class="progress-name">${getDifficultyTitle(diff)}</div>
+          <div class="progress-meta">${fullyOpened ? `${t("wins")}: ${wins}` : t("needUnlock")}</div>
         </div>
         <div class="progress-badge">${fullyOpened ? endlessText : `${getDifficultyProgressText(index)}`}</div>
       </div>
@@ -825,14 +1070,14 @@ function isSymbolCompleted(symbol) {
 }
 
 function updateNotesButton() {
-  dom.notesBtn.textContent = `Заметки: ${state.notesMode ? "вкл" : "выкл"}`;
+  dom.notesBtn.textContent = state.notesMode ? t("notesOn") : t("notesOff");
   dom.notesBtn.classList.toggle("active", state.notesMode);
   dom.notesBtn.disabled = state.isPaused;
 }
 
 function updatePauseButton() {
   if (!dom.pauseBtn) return;
-  dom.pauseBtn.textContent = state.isPaused ? "Продолжить" : "Пауза";
+  dom.pauseBtn.textContent = state.isPaused ? t("resume") : t("pause");
   dom.pauseBtn.classList.toggle("active", state.isPaused);
 }
 
@@ -985,13 +1230,13 @@ function checkEndlessCompletion() {
     state.gameOver = true;
     stopTimer();
     setGameplayActive(false);
-    dom.endlessResultText.textContent = "Поле заполнено без ошибок. Это чистое прохождение бесконечного режима.";
+    dom.endlessResultText.textContent = t("endlessPerfect");
     dom.continueEndlessBtn.classList.add("hidden");
     showModal(dom.endlessResultModal);
     return;
   }
 
-  dom.endlessResultText.textContent = `Поле заполнено. Ошибок: ${errors}. Можешь продолжить исправлять или начать заново.`;
+  dom.endlessResultText.textContent = t("endlessErrors", errors);
   dom.continueEndlessBtn.classList.remove("hidden");
   showModal(dom.endlessResultModal);
 }
@@ -1083,7 +1328,7 @@ function useHint() {
 
   const price = state.hintsUsedThisGame === 0 ? 0 : 25;
   if (price > 0 && state.coins < price) {
-    showNotification("Недостаточно монет для подсказки. Нужно 25 монет.", "warning");
+    showNotification(t("notEnoughCoinsHint"), "warning");
     return;
   }
 
@@ -1178,16 +1423,16 @@ function checkWin() {
   const nextUnlocked = hasNext ? isDifficultyUnlocked(nextIndex) : false;
 
   dom.winText.textContent =
-    `Сложность «${diff.title}» пройдена. Получено ${diff.reward} монет. Побед на этом уровне: ${winsOnCurrent}.`;
+    t("winMessage", getDifficultyTitle(diff), diff.reward, winsOnCurrent);
 
   if (hasNext && nextUnlocked && winsOnCurrent >= 5) {
-    dom.nextDifficultyBtn.textContent = "Открыть следующий уровень";
+    dom.nextDifficultyBtn.textContent = t("nextLevel");
     dom.nextDifficultyBtn.classList.remove("hidden");
     dom.restartAfterWinBtn.classList.add("hidden");
   } else {
     dom.nextDifficultyBtn.classList.add("hidden");
     dom.restartAfterWinBtn.classList.remove("hidden");
-    dom.restartAfterWinBtn.textContent = "Играть снова";
+    dom.restartAfterWinBtn.textContent = t("playAgain");
   }
 
   showModal(dom.winModal);
@@ -1213,7 +1458,7 @@ function hideAllModals() {
 
 function buyLife() {
   if (state.coins < 50) {
-    showNotification("Недостаточно монет для продолжения. Нужно 50 монет.", "warning");
+    showNotification(t("notEnoughCoinsContinue"), "warning");
     return;
   }
 
@@ -1244,7 +1489,7 @@ function goToNextDifficulty() {
 function toggleGameMode() {
   if (!isCurrentEndlessUnlocked()) {
     const diff = getCurrentDifficulty();
-    showNotification(`Бесконечный режим для сложности «${diff.title}» откроется после 5 побед на ней.`, "warning");
+    showNotification(t("endlessLockedMessage", getDifficultyTitle(diff)), "warning");
     return;
   }
 
@@ -1273,6 +1518,60 @@ function initTheme() {
   applyTheme(saved);
 }
 
+function isScrollableElement(element, deltaY) {
+  let node = element;
+
+  while (node && node !== document.body && node !== document.documentElement) {
+    const style = window.getComputedStyle(node);
+    const canScrollY = /(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight;
+
+    if (canScrollY) {
+      if (deltaY < 0 && node.scrollTop > 0) return true;
+      if (deltaY > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) return true;
+    }
+
+    node = node.parentElement;
+  }
+
+  return false;
+}
+
+function installInteractionGuards() {
+  const guardedSelector = ".app, .modal, .overlay, .notification";
+  let touchStartY = 0;
+
+  ["contextmenu", "selectstart", "dragstart"].forEach((eventName) => {
+    document.addEventListener(eventName, (event) => {
+      if (event.target.closest?.(guardedSelector) || event.target === document.body) {
+        event.preventDefault();
+      }
+    }, { capture: true });
+  });
+
+  document.addEventListener("touchstart", (event) => {
+    if (event.touches.length === 1) {
+      touchStartY = event.touches[0].clientY;
+    }
+  }, { passive: false, capture: true });
+
+  document.addEventListener("touchmove", (event) => {
+    if (event.touches.length !== 1) {
+      event.preventDefault();
+      return;
+    }
+
+    const currentY = event.touches[0].clientY;
+    const deltaY = touchStartY - currentY;
+    const scrollable = isScrollableElement(event.target, deltaY);
+
+    if (!scrollable) {
+      event.preventDefault();
+    }
+  }, { passive: false, capture: true });
+
+  document.addEventListener("gesturestart", (event) => event.preventDefault(), { passive: false });
+}
+
 function bindEvents() {
   dom.notesBtn.addEventListener("click", () => {
     if (state.isPaused || state.gameOver) return;
@@ -1284,6 +1583,7 @@ function bindEvents() {
   dom.newGameBtn.addEventListener("click", initGame);
   dom.pauseBtn?.addEventListener("click", togglePause);
   dom.modeBtn.addEventListener("click", toggleGameMode);
+  dom.langBtn?.addEventListener("click", toggleLanguage);
   dom.themeBtn.addEventListener("click", () => {
     const current = document.body.getAttribute("data-theme") || "dark";
     applyTheme(current === "light" ? "dark" : "light");
@@ -1382,16 +1682,18 @@ async function bootstrapGame() {
     localStorage.setItem("sudoku_theme", loaded.theme);
   }
 
+  if (window.YandexStorage && !hasExplicitLanguageOverride()) {
+    const sdkLang = window.YandexStorage.getLanguage?.();
+    if (sdkLang) currentLang = normalizeLang(sdkLang);
+  }
+
+  applyLanguage(currentLang);
   initTheme();
+  installInteractionGuards();
   bindEvents();
   initGame();
 
   if (window.YandexStorage) {
-    const lang = window.YandexStorage.getLanguage?.();
-    if (lang) {
-      document.documentElement.lang = lang;
-    }
-
     window.YandexStorage.onPause?.(() => pauseGame("platform"));
     window.YandexStorage.onResume?.(() => resumeGame("platform"));
   }

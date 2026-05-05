@@ -1098,3 +1098,286 @@ body[data-theme="light"] .notification {
   letter-spacing: 0.02em;
   pointer-events: none;
 }
+
+
+/* === Yandex Games release fixes v7: adaptive without breaking original layout === */
+html,
+body {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  padding: clamp(8px, 1.25vw, 18px);
+  touch-action: manipulation;
+}
+
+body,
+body * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  width: 100%;
+  height: 100%;
+  max-width: 1420px;
+  margin: 0 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+
+.app::-webkit-scrollbar,
+.board-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+.center,
+.side-card,
+.board-wrap,
+.number-pad,
+.toolbar,
+.rules-card,
+.modal-card,
+.tool-btn,
+.difficulty-item,
+.progress-item,
+.number-btn,
+.cell {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.topbar {
+  align-items: flex-start;
+}
+
+.stats {
+  flex: 0 0 auto;
+  width: min(420px, 42vw);
+  min-width: 340px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stat {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stat-value,
+.lives {
+  white-space: nowrap;
+}
+
+.board-wrap {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.board-wrap.paused::after {
+  content: attr(data-pause-label);
+}
+
+/* Medium Yandex iframe / tablet: gameplay first, settings below. */
+@media (max-width: 1180px) {
+  .topbar {
+    margin-bottom: 10px;
+  }
+
+  .game-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .center {
+    order: 1;
+  }
+
+  .side {
+    order: 2;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .rules-card {
+    margin-top: 12px;
+  }
+}
+
+/* Narrow desktop window: keep header readable and prevent stats from escaping. */
+@media (max-width: 900px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .stats {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+@media (max-width: 760px) {
+  body {
+    padding: 8px;
+  }
+
+  .app {
+    height: calc(100dvh - 16px);
+  }
+
+  .brand {
+    font-size: 20px;
+    margin-bottom: 0;
+  }
+
+  .subtitle {
+    display: none;
+  }
+
+  .stats {
+    gap: 6px;
+  }
+
+  .stat {
+    padding: 7px 8px;
+    border-radius: 11px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    margin-bottom: 3px;
+  }
+
+  .stat-value,
+  .lives {
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+
+  .center {
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    margin-bottom: 8px;
+  }
+
+  .tool-btn {
+    min-height: 38px;
+    padding: 7px 6px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  .board-head {
+    margin-bottom: 6px;
+  }
+
+  .board-title {
+    font-size: 15px;
+  }
+
+  .board-subtitle {
+    display: none;
+  }
+
+  .hint-meta {
+    font-size: 10px;
+    white-space: normal;
+    text-align: right;
+  }
+
+  .board-wrap {
+    padding: 4px;
+    margin-bottom: 8px;
+    border-radius: 14px;
+  }
+
+  .number-pad {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .number-btn {
+    min-height: 38px;
+    font-size: 17px;
+    border-radius: 10px;
+  }
+
+  .notes-panel {
+    margin-top: 6px;
+  }
+
+  .notes-panel-btn {
+    min-height: 38px;
+  }
+
+  .side {
+    grid-template-columns: 1fr;
+  }
+
+  .rules-card {
+    margin-top: 8px;
+    padding: 10px;
+  }
+
+  .rules-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .rule-item {
+    min-height: auto;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  body[data-board-size="16"] .number-pad {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 430px) {
+  body {
+    padding: 6px;
+  }
+
+  .app {
+    height: calc(100dvh - 12px);
+  }
+
+  .toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tool-btn {
+    font-size: 11px;
+    min-height: 36px;
+  }
+
+  .number-btn,
+  .notes-panel-btn {
+    min-height: 36px;
+  }
+}

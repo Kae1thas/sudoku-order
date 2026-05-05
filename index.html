@@ -6,20 +6,20 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
   />
-  <title>Судоку: Код Порядка</title>
+  <title data-i18n="title">Судоку Код Порядка</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
       <div class="brand-wrap">
-        <h1 class="brand">Судоку: Код Порядка</h1>
-        <p class="subtitle">Лёгкая браузерная головоломка с классическим и бесконечным режимом.</p>
+        <h1 class="brand" data-i18n="title">Судоку Код Порядка</h1>
+        <p class="subtitle" data-i18n="subtitle">Лёгкая браузерная головоломка с классическим и бесконечным режимом.</p>
       </div>
 
       <div class="stats">
         <div class="stat">
-          <span class="stat-label">Время</span>
+          <span class="stat-label" data-i18n="time">Время</span>
           <span id="timeValue" class="stat-value">00:00</span>
         </div>
         <div class="stat">
@@ -27,7 +27,7 @@
           <span id="modeValue" class="stat-value lives">❤ ❤ ❤</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Монеты</span>
+          <span class="stat-label" data-i18n="coins">Монеты</span>
           <span id="coinsValue" class="stat-value">120</span>
         </div>
       </div>
@@ -36,23 +36,33 @@
     <section class="game-shell">
       <aside class="side side-left">
         <div class="side-card">
-          <div class="side-title">Сложность</div>
+          <div class="side-title" data-i18n="difficulty">Сложность</div>
 
           <div class="side-control-stack">
             <button id="themeBtn" class="difficulty-item side-wide-btn" type="button">
               <div class="difficulty-main">
                 <div>
-                  <div class="difficulty-name">Тема</div>
+                  <div class="difficulty-name" data-i18n="theme">Тема</div>
                   <div id="themeBtnMeta" class="difficulty-meta"></div>
                 </div>
                 <div id="themeBtnBadge" class="difficulty-badge">Тёмная</div>
               </div>
             </button>
 
+            <button id="langBtn" class="difficulty-item side-wide-btn" type="button">
+              <div class="difficulty-main">
+                <div>
+                  <div class="difficulty-name" data-i18n="language">Язык</div>
+                  <div id="langBtnMeta" class="difficulty-meta">Русский / English</div>
+                </div>
+                <div id="langBtnBadge" class="difficulty-badge">RU</div>
+              </div>
+            </button>
+
             <button id="modeBtn" class="difficulty-item side-wide-btn mode-switch" type="button">
               <div class="difficulty-main">
                 <div>
-                  <div class="difficulty-name">Бесконечный режим</div>
+                  <div class="difficulty-name" data-i18n="endlessMode">Бесконечный режим</div>
                   <div id="modeBtnMeta" class="difficulty-meta">Откроется после 5 побед</div>
                 </div>
                 <div id="modeBtnBadge" class="difficulty-badge">Закрыт</div>
@@ -64,19 +74,19 @@
         </div>
 
         <div class="side-card">
-          <div class="side-title">Прогресс</div>
+          <div class="side-title" data-i18n="progress">Прогресс</div>
           <div id="progressList" class="progress-list"></div>
         </div>
       </aside>
 
       <main class="center">
         <div class="toolbar">
-          <button id="newGameBtn" class="tool-btn primary">Новая игра</button>
-          <button id="pauseBtn" class="tool-btn">Пауза</button>
-          <button id="eraseBtn" class="tool-btn">Стереть</button>
-          <button id="clearNotesBtn" class="tool-btn">Очистить заметки</button>
-          <button id="hintBtn" class="tool-btn">Подсказка</button>
-          <button id="surrenderBtn" class="tool-btn subtle">Сдаться</button>
+          <button id="newGameBtn" class="tool-btn primary" data-i18n="newGame">Новая игра</button>
+          <button id="pauseBtn" class="tool-btn" data-i18n="pause">Пауза</button>
+          <button id="eraseBtn" class="tool-btn" data-i18n="erase">Стереть</button>
+          <button id="clearNotesBtn" class="tool-btn" data-i18n="clearNotes">Очистить заметки</button>
+          <button id="hintBtn" class="tool-btn" data-i18n="hint">Подсказка</button>
+          <button id="surrenderBtn" class="tool-btn subtle" data-i18n="surrender">Сдаться</button>
         </div>
 
         <div class="board-head">
@@ -101,13 +111,13 @@
 
     <section class="rules-card" aria-labelledby="rulesTitle">
       <div class="rules-head">
-        <h2 id="rulesTitle">Правила</h2>
+        <h2 id="rulesTitle" data-i18n="rules">Правила</h2>
       </div>
       <div class="rules-grid">
-        <div class="rule-item">Заполни все пустые клетки символами из нижней панели.</div>
-        <div class="rule-item">В строке, столбце и выделенном блоке символы не должны повторяться.</div>
-        <div class="rule-item">В обычном режиме ошибка снимает жизнь. В бесконечном режиме ошибок нет до полной проверки.</div>
-        <div class="rule-item">Заметки помогают временно записывать варианты внутри клетки.</div>
+        <div class="rule-item" data-i18n="rule1">Заполни все пустые клетки символами из нижней панели.</div>
+        <div class="rule-item" data-i18n="rule2">В строке, столбце и выделенном блоке символы не должны повторяться.</div>
+        <div class="rule-item" data-i18n="rule3">В обычном режиме ошибка снимает жизнь. В бесконечном режиме ошибок нет до полной проверки.</div>
+        <div class="rule-item" data-i18n="rule4">Заметки помогают временно записывать варианты внутри клетки.</div>
       </div>
     </section>
   </div>
@@ -118,70 +128,70 @@
 
   <div id="gameOverModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
-      <h2>Жизни закончились</h2>
+      <h2 data-i18n="gameOverTitle">Жизни закончились</h2>
       <p class="modal-text">
-        Можно продолжить за монеты или начать заново.
+        <span data-i18n="gameOverText">Можно продолжить за монеты или начать заново.</span>
       </p>
 
       <div class="modal-info">
         <div class="modal-info-item">
-          <span>Монеты</span>
+          <span data-i18n="coins">Монеты</span>
           <strong id="modalCoinsValue">120</strong>
         </div>
         <div class="modal-info-item">
-          <span>Цена</span>
+          <span data-i18n="price">Цена</span>
           <strong>50</strong>
         </div>
       </div>
 
       <p class="modal-note">
-        Продолжение за монеты доступно в рамках игрового прогресса.
+        <span data-i18n="gameOverNote">Продолжение за монеты доступно в рамках игрового прогресса.</span>
       </p>
 
       <div class="modal-actions">
-        <button id="buyLifeBtn" class="tool-btn primary">Продолжить за 50 монет</button>
-        <button id="restartFromLoseBtn" class="tool-btn danger">Рестарт</button>
+        <button id="buyLifeBtn" class="tool-btn primary" data-i18n="buyLife">Продолжить за 50 монет</button>
+        <button id="restartFromLoseBtn" class="tool-btn danger" data-i18n="restart">Рестарт</button>
       </div>
     </div>
   </div>
 
   <div id="winModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
-      <h2>Уровень пройден</h2>
+      <h2 data-i18n="winTitle">Уровень пройден</h2>
       <p id="winText" class="modal-text">
-        Отлично. Победа засчитана в прогресс.
+        <span data-i18n="winDefaultText">Отлично. Победа засчитана в прогресс.</span>
       </p>
 
       <div class="modal-actions">
-        <button id="nextDifficultyBtn" class="tool-btn primary">Открыть следующий уровень</button>
-        <button id="restartAfterWinBtn" class="tool-btn">Играть снова</button>
+        <button id="nextDifficultyBtn" class="tool-btn primary" data-i18n="nextLevel">Открыть следующий уровень</button>
+        <button id="restartAfterWinBtn" class="tool-btn" data-i18n="playAgain">Играть снова</button>
       </div>
     </div>
   </div>
 
   <div id="surrenderModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
-      <h2>Ты сдался</h2>
+      <h2 data-i18n="surrenderTitle">Ты сдался</h2>
       <p class="modal-text">
-        Поле раскрыто полностью. Это поражение, но можешь спокойно посмотреть решение.
+        <span data-i18n="surrenderText">Поле раскрыто полностью. Это поражение, но можешь спокойно посмотреть решение.</span>
       </p>
 
       <div class="modal-actions">
-        <button id="restartAfterSurrenderBtn" class="tool-btn primary">Новая игра</button>
+        <button id="restartAfterSurrenderBtn" class="tool-btn primary" data-i18n="newGame">Новая игра</button>
       </div>
     </div>
   </div>
 
   <div id="endlessResultModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
-      <h2>Бесконечный режим</h2>
+      <h2 data-i18n="endlessMode">Бесконечный режим</h2>
       <p id="endlessResultText" class="modal-text">
-        Поле заполнено.
+        <span data-i18n="endlessFilled">Поле заполнено.</span>
       </p>
 
       <div class="modal-actions">
-        <button id="continueEndlessBtn" class="tool-btn">Продолжить исправлять</button>
-        <button id="restartAfterEndlessBtn" class="tool-btn primary">Новая игра</button>
+        <button id="continueEndlessBtn" class="tool-btn" data-i18n="continueFixing">Продолжить исправлять</button>
+        <button id="restartAfterEndlessBtn" class="tool-btn primary" data-i18n="newGame">Новая игра</button>
       </div>
     </div>
   </div>
