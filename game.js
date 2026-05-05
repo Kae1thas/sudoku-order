@@ -58,6 +58,9 @@ const I18N = {
     hint: "Подсказка",
     surrender: "Сдаться",
     rules: "Правила",
+    rulesMeta: "Краткая справка по игре",
+    open: "Открыть",
+    close: "Закрыть",
     rule1: "Заполни все пустые клетки символами из нижней панели.",
     rule2: "В строке, столбце и выделенном блоке символы не должны повторяться.",
     rule3: "В обычном режиме ошибка снимает жизнь. В бесконечном режиме ошибки считаются после полной проверки.",
@@ -124,6 +127,9 @@ const I18N = {
     hint: "Hint",
     surrender: "Give Up",
     rules: "Rules",
+    rulesMeta: "Quick game help",
+    open: "Open",
+    close: "Close",
     rule1: "Fill every empty cell with symbols from the lower panel.",
     rule2: "Symbols must not repeat in any row, column, or highlighted block.",
     rule3: "In classic mode, mistakes cost lives. In endless mode, mistakes are counted after the final check.",
@@ -302,6 +308,7 @@ const dom = {
   boardSubtitle: document.getElementById("boardSubtitle"),
   hintMeta: document.getElementById("hintMeta"),
   timeValue: document.getElementById("timeValue"),
+  mobileTimeValue: document.getElementById("mobileTimeValue"),
   modeStatLabel: document.getElementById("modeStatLabel"),
   modeValue: document.getElementById("modeValue"),
   coinsValue: document.getElementById("coinsValue"),
@@ -327,6 +334,9 @@ const dom = {
   surrenderBtn: document.getElementById("surrenderBtn"),
   notification: document.getElementById("notification"),
   overlay: document.getElementById("overlay"),
+  rulesBtn: document.getElementById("rulesBtn"),
+  rulesModal: document.getElementById("rulesModal"),
+  closeRulesBtn: document.getElementById("closeRulesBtn"),
   gameOverModal: document.getElementById("gameOverModal"),
   winModal: document.getElementById("winModal"),
   surrenderModal: document.getElementById("surrenderModal"),
@@ -692,13 +702,17 @@ function generatePuzzle(solution, removeCount, difficultyId) {
 
 function updateResponsiveCellSize() {
   const size = state.board.length || getCurrentDifficulty().size;
-  const isMobile = window.innerWidth < 760;
-  const isSmallPhone = window.innerWidth < 430;
-  const isDesktopShell = window.innerWidth > 1180;
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+  const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+  const isMobile = viewportWidth <= 760;
+  const isSmallPhone = viewportWidth <= 430;
+  const isLargeMobile = viewportWidth > 600 && viewportWidth <= 760;
+  const isTablet = viewportWidth > 760 && viewportWidth <= 1180;
+  const isDesktopShell = viewportWidth > 1180;
 
-  const appWidth = Math.min(window.innerWidth, 1420);
+  const appWidth = Math.min(viewportWidth, 1420);
   const sideColumnWidth = isDesktopShell ? 252 : 0;
-  const bodyPadding = isMobile ? (isSmallPhone ? 12 : 16) : Math.ceil(window.innerWidth * 0.025);
+  const bodyPadding = isMobile ? (isSmallPhone ? 12 : 16) : Math.ceil(viewportWidth * 0.025);
   const centerPadding = isMobile ? 16 : 24;
   const gaps = isDesktopShell ? 14 : 0;
   const boardChrome = isMobile ? 12 : 22;
@@ -708,21 +722,38 @@ function updateResponsiveCellSize() {
     260
   );
 
-  // Запас по высоте намеренно больше, чем кажется нужным: внутри Яндекс Игр
-  // сверху/снизу есть собственные панели, и 16×16 иначе начинает подрезать нижние кнопки.
-  const verticalChrome = isMobile
-    ? (size === 16 ? 360 : 330)
-    : (size === 16 ? 445 : 310);
-  const availableHeight = Math.max(window.innerHeight - bodyPadding - verticalChrome, 220);
-
   const maxByWidth = Math.floor(availableWidth / size);
-  const maxByHeight = Math.floor(availableHeight / size);
-  const visualMax = size === 16
-    ? (isMobile ? 23 : 34)
-    : (isMobile ? (isSmallPhone ? 31 : 35) : 50);
-  const visualMin = size === 16 ? (isMobile ? 16 : 22) : (isMobile ? 26 : 32);
 
-  const cellSize = Math.max(visualMin, Math.min(maxByWidth, maxByHeight, visualMax));
+  let cellSize;
+  if (isMobile) {
+    // На телефоне поле должно быть главным элементом. Размер считаем в первую очередь
+    // от ширины экрана, а не от высоты: иначе всплывающие панели браузера Яндекса
+    // после тапа меняют innerHeight и поле начинает неприятно прыгать.
+    // Для широких мобильных экранов / портретных планшетов поднимаем потолок,
+    // чтобы поле реально использовало доступную ширину, а не оставалось маленьким.
+    const visualMax = size === 16
+      ? (isSmallPhone ? 24 : (isLargeMobile ? 34 : 28))
+      : (isSmallPhone ? 42 : (isLargeMobile ? 68 : 56));
+    const visualMin = size === 16 ? 18 : (isLargeMobile ? 38 : 32);
+    cellSize = Math.max(visualMin, Math.min(maxByWidth, visualMax));
+  } else {
+    // На планшетах и широких экранах поле должно заметно лучше использовать свободное
+    // пространство. Раньше жёсткий visualMax делал доску слишком маленькой даже там,
+    // где вокруг было много пустого места.
+    const verticalChrome = size === 16
+      ? (isTablet ? 400 : 390)
+      : (isTablet ? 250 : 260);
+    const availableHeight = Math.max(viewportHeight - bodyPadding - verticalChrome, 220);
+    const maxByHeight = Math.floor(availableHeight / size);
+
+    const visualMax = size === 16
+      ? (isTablet ? 40 : 42)
+      : (isTablet ? 68 : 72);
+    const visualMin = size === 16 ? 22 : 36;
+
+    cellSize = Math.max(visualMin, Math.min(maxByWidth, maxByHeight, visualMax));
+  }
+
   document.documentElement.style.setProperty("--cell-size", `${cellSize}px`);
   document.body.dataset.boardSize = String(size);
 }
@@ -762,8 +793,13 @@ function updateThemeButton() {
 
 function updateLanguageButton() {
   if (!dom.langBtn) return;
-  dom.langBtnMeta.textContent = t("langMeta");
-  dom.langBtnBadge.textContent = t("langBadge");
+  if (dom.langBtnMeta) {
+    dom.langBtnMeta.textContent = t("langMeta");
+  }
+  if (dom.langBtnBadge) {
+    dom.langBtnBadge.textContent = t("langBadge");
+  }
+  dom.langBtn.setAttribute("aria-label", `RU / EN: ${t("langMeta")}`);
 }
 
 function refreshLanguageInterface() {
@@ -1139,7 +1175,9 @@ function togglePause() {
 function updateTimerText() {
   const minutes = Math.floor(state.timerSeconds / 60);
   const seconds = state.timerSeconds % 60;
-  dom.timeValue.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const timeText = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  dom.timeValue.textContent = timeText;
+  if (dom.mobileTimeValue) dom.mobileTimeValue.textContent = timeText;
 }
 
 function startTimer() {
@@ -1454,6 +1492,17 @@ function hideAllModals() {
   dom.winModal.classList.add("hidden");
   dom.surrenderModal.classList.add("hidden");
   dom.endlessResultModal.classList.add("hidden");
+  dom.rulesModal?.classList.add("hidden");
+}
+
+function closeRulesModal() {
+  dom.overlay.classList.add("hidden");
+  dom.rulesModal?.classList.add("hidden");
+}
+
+function openRulesModal() {
+  if (!dom.rulesModal) return;
+  showModal(dom.rulesModal);
 }
 
 function buyLife() {
@@ -1584,6 +1633,8 @@ function bindEvents() {
   dom.pauseBtn?.addEventListener("click", togglePause);
   dom.modeBtn.addEventListener("click", toggleGameMode);
   dom.langBtn?.addEventListener("click", toggleLanguage);
+  dom.rulesBtn?.addEventListener("click", openRulesModal);
+  dom.closeRulesBtn?.addEventListener("click", closeRulesModal);
   dom.themeBtn.addEventListener("click", () => {
     const current = document.body.getAttribute("data-theme") || "dark";
     applyTheme(current === "light" ? "dark" : "light");
@@ -1603,6 +1654,11 @@ function bindEvents() {
   dom.restartAfterEndlessBtn.addEventListener("click", initGame);
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && dom.rulesModal && !dom.rulesModal.classList.contains("hidden")) {
+      closeRulesModal();
+      return;
+    }
+
     if (event.key.toLowerCase() === "o" && DEBUG_MODE) {
       state.debugUnlockAll = !state.debugUnlockAll;
 
@@ -1639,7 +1695,17 @@ function bindEvents() {
     }
   });
 
+  let lastResponsiveWidth = document.documentElement.clientWidth || window.innerWidth;
   window.addEventListener("resize", () => {
+    const currentWidth = document.documentElement.clientWidth || window.innerWidth;
+    const widthChanged = Math.abs(currentWidth - lastResponsiveWidth) > 8;
+    const isMobile = currentWidth <= 760;
+
+    // На мобильных браузерные панели могут появляться/исчезать после тапа и менять
+    // только высоту viewport. Игнорируем такие resize, чтобы поле не прыгало.
+    if (isMobile && !widthChanged) return;
+
+    lastResponsiveWidth = currentWidth;
     updateResponsiveCellSize();
     renderBoard();
     renderNumberPad();

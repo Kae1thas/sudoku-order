@@ -17,18 +17,38 @@
         <p class="subtitle" data-i18n="subtitle">Лёгкая браузерная головоломка с классическим и бесконечным режимом.</p>
       </div>
 
-      <div class="stats">
-        <div class="stat">
-          <span class="stat-label" data-i18n="time">Время</span>
-          <span id="timeValue" class="stat-value">00:00</span>
+      <div class="top-actions">
+        <div class="top-controls">
+          <button id="themeBtn" class="rules-open-btn top-control-btn theme-top-btn" type="button">
+            <span class="top-control-main" data-i18n="theme">Тема</span>
+            <span id="themeBtnBadge" class="top-lang-badge">Тёмная</span>
+            <span id="themeBtnMeta" class="visually-hidden"></span>
+          </button>
+
+          <button id="rulesBtn" class="rules-open-btn top-control-btn" type="button">
+            <span class="top-control-main" data-i18n="rules">Правила</span>
+          </button>
+
+          <button id="langBtn" class="rules-open-btn lang-top-btn top-control-btn" type="button" aria-label="Русский / English">
+            <span class="lang-top-main">RU / EN</span>
+            <span id="langBtnBadge" class="top-lang-badge">RU</span>
+            <span id="langBtnMeta" class="visually-hidden">Русский / English</span>
+          </button>
         </div>
-        <div class="stat">
-          <span id="modeStatLabel" class="stat-label">Жизни</span>
-          <span id="modeValue" class="stat-value lives">❤ ❤ ❤</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label" data-i18n="coins">Монеты</span>
-          <span id="coinsValue" class="stat-value">120</span>
+
+        <div class="stats">
+          <div class="stat time-stat">
+            <span class="stat-label" data-i18n="time">Время</span>
+            <span id="timeValue" class="stat-value">00:00</span>
+          </div>
+          <div class="stat">
+            <span id="modeStatLabel" class="stat-label">Жизни</span>
+            <span id="modeValue" class="stat-value lives">❤ ❤ ❤</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label" data-i18n="coins">Монеты</span>
+            <span id="coinsValue" class="stat-value">120</span>
+          </div>
         </div>
       </div>
     </header>
@@ -39,26 +59,6 @@
           <div class="side-title" data-i18n="difficulty">Сложность</div>
 
           <div class="side-control-stack">
-            <button id="themeBtn" class="difficulty-item side-wide-btn" type="button">
-              <div class="difficulty-main">
-                <div>
-                  <div class="difficulty-name" data-i18n="theme">Тема</div>
-                  <div id="themeBtnMeta" class="difficulty-meta"></div>
-                </div>
-                <div id="themeBtnBadge" class="difficulty-badge">Тёмная</div>
-              </div>
-            </button>
-
-            <button id="langBtn" class="difficulty-item side-wide-btn" type="button">
-              <div class="difficulty-main">
-                <div>
-                  <div class="difficulty-name" data-i18n="language">Язык</div>
-                  <div id="langBtnMeta" class="difficulty-meta">Русский / English</div>
-                </div>
-                <div id="langBtnBadge" class="difficulty-badge">RU</div>
-              </div>
-            </button>
-
             <button id="modeBtn" class="difficulty-item side-wide-btn mode-switch" type="button">
               <div class="difficulty-main">
                 <div>
@@ -90,9 +90,15 @@
         </div>
 
         <div class="board-head">
-          <div>
-            <div id="boardTitle" class="board-title">Лёгкий · поле 9×9</div>
-            <div id="boardSubtitle" class="board-subtitle">Заполни поле без повторений.</div>
+          <div class="board-head-main">
+            <div>
+              <div id="boardTitle" class="board-title">Лёгкий · поле 9×9</div>
+              <div id="boardSubtitle" class="board-subtitle">Заполни поле без повторений.</div>
+            </div>
+            <div class="mobile-time-card" aria-hidden="true">
+              <span class="mobile-time-label" data-i18n="time">Время</span>
+              <span id="mobileTimeValue" class="mobile-time-value">00:00</span>
+            </div>
           </div>
           <div id="hintMeta" class="hint-meta">1-я подсказка бесплатно</div>
         </div>
@@ -108,23 +114,27 @@
         </div>
       </main>
     </section>
-
-    <section class="rules-card" aria-labelledby="rulesTitle">
-      <div class="rules-head">
-        <h2 id="rulesTitle" data-i18n="rules">Правила</h2>
-      </div>
-      <div class="rules-grid">
-        <div class="rule-item" data-i18n="rule1">Заполни все пустые клетки символами из нижней панели.</div>
-        <div class="rule-item" data-i18n="rule2">В строке, столбце и выделенном блоке символы не должны повторяться.</div>
-        <div class="rule-item" data-i18n="rule3">В обычном режиме ошибка снимает жизнь. В бесконечном режиме ошибок нет до полной проверки.</div>
-        <div class="rule-item" data-i18n="rule4">Заметки помогают временно записывать варианты внутри клетки.</div>
-      </div>
-    </section>
   </div>
 
   <div id="notification" class="notification hidden" role="status" aria-live="polite"></div>
 
   <div id="overlay" class="overlay hidden"></div>
+
+  <div id="rulesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+    <div class="modal-card rules-modal-card">
+      <div class="rules-head">
+        <h2 id="rulesTitle" data-i18n="rules">Правила</h2>
+        <button id="closeRulesBtn" class="modal-close-btn" type="button" data-i18n="close">Закрыть</button>
+      </div>
+      <div class="rules-grid">
+        <div class="rule-item" data-i18n="rule1">Заполни все пустые клетки символами из нижней панели.</div>
+        <div class="rule-item" data-i18n="rule2">В строке, столбце и выделенном блоке символы не должны повторяться.</div>
+        <div class="rule-item" data-i18n="rule3">В обычном режиме ошибка снимает жизнь. В бесконечном режиме ошибки считаются после полной проверки.</div>
+        <div class="rule-item" data-i18n="rule4">Заметки помогают временно записывать варианты внутри клетки.</div>
+      </div>
+    </div>
+  </div>
+
 
   <div id="gameOverModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
