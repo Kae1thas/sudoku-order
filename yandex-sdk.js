@@ -4,7 +4,6 @@ window.YandexStorage = (function () {
   let ysdk = null;
   let player = null;
   let initialized = false;
-  let gameplayActive = false;
 
   function hasSdk() {
     return typeof window !== "undefined"
@@ -49,67 +48,6 @@ window.YandexStorage = (function () {
     } catch (err) {
       console.warn("Ошибка LoadingAPI.ready:", err);
     }
-  }
-
-  async function gameplayStart() {
-    await init();
-
-    if (gameplayActive) return;
-
-    try {
-      ysdk?.features?.GameplayAPI?.start?.();
-      gameplayActive = true;
-    } catch (err) {
-      console.warn("Ошибка GameplayAPI.start:", err);
-    }
-  }
-
-  async function gameplayStop() {
-    await init();
-
-    if (!gameplayActive) return;
-
-    try {
-      ysdk?.features?.GameplayAPI?.stop?.();
-      gameplayActive = false;
-    } catch (err) {
-      console.warn("Ошибка GameplayAPI.stop:", err);
-    }
-  }
-
-  async function bindPlatformPauseHandlers(onPause, onResume) {
-    await init();
-
-    if (!ysdk || typeof ysdk.on !== "function") {
-      return false;
-    }
-
-    try {
-      ysdk.on("game_api_pause", () => {
-        try {
-          onPause?.();
-        } catch (err) {
-          console.warn("Ошибка обработчика game_api_pause:", err);
-        }
-      });
-
-      ysdk.on("game_api_resume", () => {
-        try {
-          onResume?.();
-        } catch (err) {
-          console.warn("Ошибка обработчика game_api_resume:", err);
-        }
-      });
-
-      return true;
-    } catch (err) {
-      console.warn("Не удалось подписаться на события паузы Яндекс Игр:", err);
-      return false;
-    }
-  }
-
-  function getLanguage() {
-    return ysdk?.environment?.i18n?.lang || "ru";
   }
 
   async function getCloudData() {
@@ -173,11 +111,11 @@ window.YandexStorage = (function () {
       const data = cloud[CLOUD_KEY];
 
       if (data.coins !== undefined) {
-        localStorage.setItem("sudoku_order_coins", String(data.coins));
+        setLocal("sudoku_order_coins", data.coins);
       }
 
       if (data.progress !== undefined) {
-        localStorage.setItem("sudoku_order_progress_v4", JSON.stringify(data.progress));
+        setLocal("sudoku_order_progress_v4", data.progress);
       }
 
       if (data.theme !== undefined) {
@@ -203,7 +141,7 @@ window.YandexStorage = (function () {
       },
     };
 
-    return setCloudData(payload, true);
+    await setCloudData(payload, true);
   }
 
   async function openAuthDialog() {
@@ -223,17 +161,53 @@ window.YandexStorage = (function () {
     }
   }
 
+
+
+  async function startGameplay() {
+    await init();
+
+    try {
+      ysdk?.features?.GameplayAPI?.start?.();
+    } catch (err) {
+      console.warn("Ошибка GameplayAPI.start:", err);
+    }
+  }
+
+  async function stopGameplay() {
+    await init();
+
+    try {
+      ysdk?.features?.GameplayAPI?.stop?.();
+    } catch (err) {
+      console.warn("Ошибка GameplayAPI.stop:", err);
+    }
+  }
+
+  function onPause(callback) {
+    if (typeof callback !== "function") return;
+    window.addEventListener("game_api_pause", callback);
+  }
+
+  function onResume(callback) {
+    if (typeof callback !== "function") return;
+    window.addEventListener("game_api_resume", callback);
+  }
+
+  function getLanguage() {
+    return ysdk?.environment?.i18n?.lang || "ru";
+  }
   return {
     init,
     ready,
-    gameplayStart,
-    gameplayStop,
-    bindPlatformPauseHandlers,
-    getLanguage,
     getLocal,
     setLocal,
     loadGameState,
     saveGameState,
+    startGameplay,
+    stopGameplay,
+    onPause,
+    onResume,
+    getLanguage,
     openAuthDialog,
   };
 })();

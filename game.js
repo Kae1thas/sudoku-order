@@ -3,7 +3,13 @@ const STORAGE_KEYS = {
   progress: "sudoku_order_progress_v4",
 };
 
-const DEBUG_MODE = new URLSearchParams(window.location.search).has("debug");
+const DEBUG_PARAMS = new URLSearchParams(window.location.search);
+const DEBUG_MODE =
+  DEBUG_PARAMS.has("debug") ||
+  DEBUG_PARAMS.has("debug-mode") ||
+  window.location.hash.includes("debug=1") ||
+  localStorage.getItem("sudoku_debug") === "1";
+
 
 const DIFFICULTIES = [
   {
@@ -75,6 +81,8 @@ const state = {
   notesMode: false,
   lives: 3,
   gameOver: false,
+  isPaused: false,
+  pauseReason: null,
   timerSeconds: 0,
   timerId: null,
   timerStarted: false,
@@ -83,8 +91,6 @@ const state = {
   hintsUsedThisGame: 0,
   surrendered: false,
   isEndless: false,
-  platformPaused: false,
-  userPaused: false,
   debugUnlockAll: false,
 };
 
@@ -115,6 +121,7 @@ const dom = {
   clearNotesBtn: document.getElementById("clearNotesBtn"),
   hintBtn: document.getElementById("hintBtn"),
   surrenderBtn: document.getElementById("surrenderBtn"),
+  notification: document.getElementById("notification"),
   overlay: document.getElementById("overlay"),
   gameOverModal: document.getElementById("gameOverModal"),
   winModal: document.getElementById("winModal"),
@@ -552,8 +559,8 @@ function updateSecondaryStat() {
 function initGame() {
   hideAllModals();
   state.gameOver = false;
-  state.userPaused = false;
-  updatePauseButton();
+  state.isPaused = false;
+  state.pauseReason = null;
   state.lives = 3;
   state.selected = null;
   state.notesMode = false;
@@ -572,6 +579,7 @@ function initGame() {
   updateHintMeta();
   updateModeButton();
   updateThemeButton();
+  updatePauseButton();
   updateSecondaryStat();
   stopTimer();
 
@@ -737,8 +745,7 @@ function renderBoard() {
       }
 
       cell.addEventListener("click", () => {
-        if (isGameplayBlocked()) return;
-
+        if (state.isPaused || state.gameOver) return;
         state.selected = { row, col };
         renderBoard();
       });
@@ -820,6 +827,68 @@ function isSymbolCompleted(symbol) {
 function updateNotesButton() {
   dom.notesBtn.textContent = `Заметки: ${state.notesMode ? "вкл" : "выкл"}`;
   dom.notesBtn.classList.toggle("active", state.notesMode);
+  dom.notesBtn.disabled = state.isPaused;
+}
+
+function updatePauseButton() {
+  if (!dom.pauseBtn) return;
+  dom.pauseBtn.textContent = state.isPaused ? "Продолжить" : "Пауза";
+  dom.pauseBtn.classList.toggle("active", state.isPaused);
+}
+
+function showNotification(message, type = "warning") {
+  if (!dom.notification) return;
+
+  clearTimeout(showNotification.timerId);
+  dom.notification.textContent = message;
+  dom.notification.className = `notification ${type}`;
+  dom.notification.classList.remove("hidden");
+
+  showNotification.timerId = setTimeout(() => {
+    dom.notification.classList.add("hidden");
+  }, 2300);
+}
+
+function setGameplayActive(active) {
+  if (!window.YandexStorage) return;
+
+  if (active) {
+    window.YandexStorage.startGameplay?.();
+  } else {
+    window.YandexStorage.stopGameplay?.();
+  }
+}
+
+function pauseGame(reason = "manual") {
+  if (state.gameOver || state.isPaused) return;
+  state.isPaused = true;
+  state.pauseReason = reason;
+  stopTimer();
+  setGameplayActive(false);
+  updatePauseButton();
+  updateNotesButton();
+  dom.boardWrap?.classList.add("paused");
+}
+
+function resumeGame(reason = "manual") {
+  if (!state.isPaused) return;
+  state.isPaused = false;
+  state.pauseReason = null;
+  if (state.timerStarted && !state.gameOver) {
+    startTimer();
+    setGameplayActive(true);
+  }
+  updatePauseButton();
+  updateNotesButton();
+  dom.boardWrap?.classList.remove("paused");
+}
+
+function togglePause() {
+  if (state.isPaused) {
+    resumeGame("manual");
+  } else {
+    pauseGame("manual");
+  }
 }
 
 function updateTimerText() {
@@ -828,90 +897,23 @@ function updateTimerText() {
   dom.timeValue.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function isGameplayBlocked() {
-  return state.platformPaused || state.userPaused;
-}
-
-function updatePauseButton() {
-  if (!dom.pauseBtn) return;
-
-  dom.pauseBtn.textContent = state.userPaused ? "Продолжить" : "Пауза";
-  dom.pauseBtn.classList.toggle("active", state.userPaused);
-  document.body.classList.toggle("game-paused", state.userPaused || state.platformPaused);
-}
-
 function startTimer() {
-  if (state.gameOver || isGameplayBlocked() || state.timerId) {
+  if (state.gameOver || state.isPaused || state.timerId) {
     return;
   }
 
   state.timerId = setInterval(() => {
-    if (!state.gameOver && !isGameplayBlocked()) {
+    if (!state.gameOver && !state.isPaused) {
       state.timerSeconds += 1;
       updateTimerText();
     }
   }, 1000);
-
-  window.YandexStorage?.gameplayStart?.();
 }
 
 function stopTimer() {
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
-  }
-
-  window.YandexStorage?.gameplayStop?.();
-}
-
-function pauseGameFromPlatform() {
-  state.platformPaused = true;
-
-  if (state.timerId) {
-    clearInterval(state.timerId);
-    state.timerId = null;
-  }
-
-  window.YandexStorage?.gameplayStop?.();
-}
-
-function resumeGameFromPlatform() {
-  state.platformPaused = false;
-  updatePauseButton();
-
-  if (state.timerStarted && !state.gameOver && !isGameplayBlocked()) {
-    startTimer();
-  }
-}
-
-function pauseGameFromUser() {
-  if (state.gameOver) return;
-
-  state.userPaused = true;
-
-  if (state.timerId) {
-    clearInterval(state.timerId);
-    state.timerId = null;
-  }
-
-  window.YandexStorage?.gameplayStop?.();
-  updatePauseButton();
-}
-
-function resumeGameFromUser() {
-  state.userPaused = false;
-  updatePauseButton();
-
-  if (state.timerStarted && !state.gameOver && !isGameplayBlocked()) {
-    startTimer();
-  }
-}
-
-function toggleUserPause() {
-  if (state.userPaused) {
-    resumeGameFromUser();
-  } else {
-    pauseGameFromUser();
   }
 }
 
@@ -921,7 +923,7 @@ function updateCoins() {
 }
 
 function handleSymbolInput(symbol) {
-  if (!state.selected || state.gameOver || isGameplayBlocked()) return;
+  if (!state.selected || state.gameOver || state.isPaused) return;
 
   const { row, col } = state.selected;
   if (state.fixed[row][col]) {
@@ -982,6 +984,7 @@ function checkEndlessCompletion() {
   if (errors === 0) {
     state.gameOver = true;
     stopTimer();
+    setGameplayActive(false);
     dom.endlessResultText.textContent = "Поле заполнено без ошибок. Это чистое прохождение бесконечного режима.";
     dom.continueEndlessBtn.classList.add("hidden");
     showModal(dom.endlessResultModal);
@@ -998,6 +1001,7 @@ function setCellValue(row, col, value) {
   if (!state.timerStarted) {
     state.timerStarted = true;
     startTimer();
+    setGameplayActive(true);
   } 
   state.notes[row][col].clear();
 
@@ -1048,7 +1052,7 @@ function markCellInvalid(row, col) {
 }
 
 function eraseSelected() {
-  if (!state.selected || state.gameOver || isGameplayBlocked()) return;
+  if (!state.selected || state.gameOver || state.isPaused) return;
 
   const { row, col } = state.selected;
   if (state.fixed[row][col]) return;
@@ -1065,7 +1069,7 @@ function eraseSelected() {
 }
 
 function clearSelectedNotes() {
-  if (!state.selected || state.gameOver || isGameplayBlocked()) return;
+  if (!state.selected || state.gameOver || state.isPaused) return;
 
   const { row, col } = state.selected;
   if (state.fixed[row][col]) return;
@@ -1075,11 +1079,11 @@ function clearSelectedNotes() {
 }
 
 function useHint() {
-  if (state.gameOver || isGameplayBlocked()) return;
+  if (state.gameOver || state.isPaused) return;
 
   const price = state.hintsUsedThisGame === 0 ? 0 : 25;
   if (price > 0 && state.coins < price) {
-    alert("Недостаточно монет для подсказки.");
+    showNotification("Недостаточно монет для подсказки. Нужно 25 монет.", "warning");
     return;
   }
 
@@ -1119,11 +1123,12 @@ function useHint() {
 }
 
 function surrenderGame() {
-  if (state.gameOver || isGameplayBlocked()) return;
+  if (state.gameOver || state.isPaused) return;
 
   state.surrendered = true;
   state.gameOver = true;
   stopTimer();
+  setGameplayActive(false);
 
   state.board = deepCopyGrid(state.solution);
   state.notes = createEmptyNotes(state.board.length);
@@ -1137,6 +1142,7 @@ function surrenderGame() {
 function loseGame() {
   state.gameOver = true;
   stopTimer();
+  setGameplayActive(false);
   showModal(dom.gameOverModal);
 }
 
@@ -1164,6 +1170,7 @@ function checkWin() {
 
   state.gameOver = true;
   stopTimer();
+  setGameplayActive(false);
 
   const winsOnCurrent = state.progress[diff.id] || 0;
   const nextIndex = Math.min(state.difficultyIndex + 1, DIFFICULTIES.length - 1);
@@ -1206,7 +1213,7 @@ function hideAllModals() {
 
 function buyLife() {
   if (state.coins < 50) {
-    alert("Недостаточно монет.");
+    showNotification("Недостаточно монет для продолжения. Нужно 50 монет.", "warning");
     return;
   }
 
@@ -1216,8 +1223,13 @@ function buyLife() {
   updateCoins();
   updateSecondaryStat();
   state.gameOver = false;
+  state.isPaused = false;
+  state.pauseReason = null;
   hideAllModals();
+  updatePauseButton();
+  updateNotesButton();
   startTimer();
+  setGameplayActive(true);
 }
 
 function goToNextDifficulty() {
@@ -1232,7 +1244,7 @@ function goToNextDifficulty() {
 function toggleGameMode() {
   if (!isCurrentEndlessUnlocked()) {
     const diff = getCurrentDifficulty();
-    alert(`Бесконечный режим для сложности «${diff.title}» откроется после 5 побед на ней.`);
+    showNotification(`Бесконечный режим для сложности «${diff.title}» откроется после 5 побед на ней.`, "warning");
     return;
   }
 
@@ -1243,10 +1255,10 @@ function toggleGameMode() {
 function continueEndlessEditing() {
   hideAllModals();
   state.gameOver = false;
-
-  if (state.timerStarted && !isGameplayBlocked()) {
-    startTimer();
-  }
+  state.isPaused = false;
+  state.pauseReason = null;
+  updatePauseButton();
+  updateNotesButton();
 }
 
 function applyTheme(theme) {
@@ -1263,15 +1275,14 @@ function initTheme() {
 
 function bindEvents() {
   dom.notesBtn.addEventListener("click", () => {
-    if (isGameplayBlocked()) return;
-
+    if (state.isPaused || state.gameOver) return;
     state.notesMode = !state.notesMode;
     updateNotesButton();
     renderBoard();
   });
 
   dom.newGameBtn.addEventListener("click", initGame);
-  dom.pauseBtn.addEventListener("click", toggleUserPause);
+  dom.pauseBtn?.addEventListener("click", togglePause);
   dom.modeBtn.addEventListener("click", toggleGameMode);
   dom.themeBtn.addEventListener("click", () => {
     const current = document.body.getAttribute("data-theme") || "dark";
@@ -1304,16 +1315,15 @@ function bindEvents() {
       return;
     }
 
-    if (isGameplayBlocked()) {
-      return;
-    }
-
     if (event.key.toLowerCase() === "n") {
+      if (state.isPaused || state.gameOver) return;
       state.notesMode = !state.notesMode;
       updateNotesButton();
       renderBoard();
       return;
     }
+
+    if (state.isPaused) return;
 
     if (event.key === "Backspace" || event.key === "Delete") {
       eraseSelected();
@@ -1334,18 +1344,6 @@ function bindEvents() {
     renderBoard();
     renderNumberPad();
   });
-
-  document.addEventListener("contextmenu", (event) => {
-    if (event.target.closest(".app")) {
-      event.preventDefault();
-    }
-  });
-
-  document.addEventListener("touchmove", (event) => {
-    if (!event.target.closest(".app")) {
-      event.preventDefault();
-    }
-  }, { passive: false });
 }
 
 async function syncYandexSave() {
@@ -1363,12 +1361,6 @@ async function syncYandexSave() {
 async function bootstrapGame() {
   if (window.YandexStorage) {
     await window.YandexStorage.init();
-    await window.YandexStorage.bindPlatformPauseHandlers?.(pauseGameFromPlatform, resumeGameFromPlatform);
-
-    const sdkLang = window.YandexStorage.getLanguage?.();
-    if (sdkLang) {
-      document.documentElement.lang = sdkLang;
-    }
   }
 
   const defaultTheme = localStorage.getItem("sudoku_theme") || "dark";
@@ -1393,6 +1385,16 @@ async function bootstrapGame() {
   initTheme();
   bindEvents();
   initGame();
+
+  if (window.YandexStorage) {
+    const lang = window.YandexStorage.getLanguage?.();
+    if (lang) {
+      document.documentElement.lang = lang;
+    }
+
+    window.YandexStorage.onPause?.(() => pauseGame("platform"));
+    window.YandexStorage.onResume?.(() => resumeGame("platform"));
+  }
 
   if (window.YandexStorage) {
     await window.YandexStorage.ready();
