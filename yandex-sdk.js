@@ -26,8 +26,6 @@ window.YandexStorage = (function () {
       ysdk = await window.YaGames.init();
 
       try {
-        // Важно для debug-панели Яндекс Игр: язык должен быть получен через SDK
-        // во время запуска, а не после начала игрового процесса.
         sdkLang = ysdk?.environment?.i18n?.lang || null;
       } catch (err) {
         console.warn("Не удалось прочитать язык SDK:", err);
