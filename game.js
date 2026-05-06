@@ -50,6 +50,7 @@ const I18N = {
     langBadge: "RU",
     endlessMode: "Бесконечный",
     progress: "Прогресс",
+    actions: "Действия",
     newGame: "Новая игра",
     pause: "Пауза",
     resume: "Продолжить",
@@ -119,6 +120,7 @@ const I18N = {
     langBadge: "EN",
     endlessMode: "Endless",
     progress: "Progress",
+    actions: "Actions",
     newGame: "New Game",
     pause: "Pause",
     resume: "Resume",
@@ -710,45 +712,97 @@ function updateResponsiveCellSize() {
   const isTablet = viewportWidth > 760 && viewportWidth <= 1180;
   const isDesktopShell = viewportWidth > 1180;
 
-  const appWidth = Math.min(viewportWidth, 1420);
+  const appWidth = Math.min(viewportWidth, 1640);
   const sideColumnWidth = isDesktopShell ? 252 : 0;
   const bodyPadding = isMobile ? (isSmallPhone ? 12 : 16) : Math.ceil(viewportWidth * 0.025);
   const centerPadding = isMobile ? 16 : 24;
   const gaps = isDesktopShell ? 14 : 0;
   const boardChrome = isMobile ? 12 : 22;
 
-  const availableWidth = Math.max(
+  const fallbackAvailableWidth = Math.max(
     appWidth - bodyPadding - sideColumnWidth - centerPadding - gaps - boardChrome,
+    260
+  );
+
+  // Важное изменение: считаем размер поля не по примерной ширине окна,
+  // а по реальной ширине контейнера boardWrap. Так поле расширяется вместе
+  // с игровым блоком и не упирается в старый искусственный расчёт.
+  const measuredBoardWrapWidth = dom.boardWrap?.clientWidth || 0;
+  const availableWidth = Math.max(
+    (measuredBoardWrapWidth > 120 ? measuredBoardWrapWidth - boardChrome : fallbackAvailableWidth),
     260
   );
 
   const maxByWidth = Math.floor(availableWidth / size);
 
+  const getOuterHeight = (element) => {
+    if (!element) return 0;
+
+    const rect = element.getBoundingClientRect();
+    const styles = window.getComputedStyle(element);
+
+    return rect.height
+      + (parseFloat(styles.marginTop) || 0)
+      + (parseFloat(styles.marginBottom) || 0);
+  };
+
+  const getVerticalPadding = (element) => {
+    if (!element) return 0;
+
+    const styles = window.getComputedStyle(element);
+
+    return (parseFloat(styles.paddingTop) || 0)
+      + (parseFloat(styles.paddingBottom) || 0);
+  };
+
+  const modeRow = dom.modeBtn?.closest(".mode-row");
+  const notesPanel = dom.notesBtn?.closest(".notes-panel");
+  const center = document.querySelector(".center");
+  const topbar = document.querySelector(".topbar");
+
+  // В Яндекс Играх на десктопе снизу часто есть панель/рекомендации платформы.
+  // Поэтому поле теперь ограничивается не только шириной, но и реальной высотой
+  // экрана, чтобы вместе с цифрами и кнопкой заметок помещаться без скролла.
+  const bottomPlatformReserve = isMobile ? 12 : (viewportHeight <= 950 ? 86 : 54);
+
+  const measuredVerticalChrome =
+    getOuterHeight(topbar)
+    + getOuterHeight(modeRow)
+    + getOuterHeight(document.querySelector(".board-head"))
+    + getOuterHeight(dom.numberPad)
+    + getOuterHeight(notesPanel)
+    + getVerticalPadding(center)
+    + getVerticalPadding(dom.boardWrap)
+    + bodyPadding
+    + bottomPlatformReserve;
+
+  const fallbackVerticalChrome = size === 16
+    ? (isTablet ? 430 : 430)
+    : (isTablet ? 340 : 340);
+
+  const verticalChrome = measuredVerticalChrome > 140
+    ? measuredVerticalChrome
+    : fallbackVerticalChrome;
+
+  const availableHeight = Math.max(viewportHeight - verticalChrome, 220);
+  const maxByHeight = Math.floor(availableHeight / size);
+
   let cellSize;
   if (isMobile) {
-    // На телефоне поле должно быть главным элементом. Размер считаем в первую очередь
-    // от ширины экрана, а не от высоты: иначе всплывающие панели браузера Яндекса
-    // после тапа меняют innerHeight и поле начинает неприятно прыгать.
-    // Для широких мобильных экранов / портретных планшетов поднимаем потолок,
-    // чтобы поле реально использовало доступную ширину, а не оставалось маленьким.
+    // На телефоне учитываем высоту тоже, но с маленьким нижним запасом,
+    // чтобы поле не прыгало из-за браузерных панелей.
     const visualMax = size === 16
-      ? (isSmallPhone ? 24 : (isLargeMobile ? 34 : 28))
-      : (isSmallPhone ? 42 : (isLargeMobile ? 68 : 56));
+      ? (isSmallPhone ? 24 : (isLargeMobile ? 36 : 30))
+      : (isSmallPhone ? 44 : (isLargeMobile ? 74 : 60));
     const visualMin = size === 16 ? 18 : (isLargeMobile ? 38 : 32);
-    cellSize = Math.max(visualMin, Math.min(maxByWidth, visualMax));
-  } else {
-    // На планшетах и широких экранах поле должно заметно лучше использовать свободное
-    // пространство. Раньше жёсткий visualMax делал доску слишком маленькой даже там,
-    // где вокруг было много пустого места.
-    const verticalChrome = size === 16
-      ? (isTablet ? 400 : 390)
-      : (isTablet ? 250 : 260);
-    const availableHeight = Math.max(viewportHeight - bodyPadding - verticalChrome, 220);
-    const maxByHeight = Math.floor(availableHeight / size);
 
+    cellSize = Math.max(visualMin, Math.min(maxByWidth, maxByHeight, visualMax));
+  } else {
+    // На широких экранах поле всё ещё может расти, но теперь не ценой
+    // вертикального скролла основных игровых элементов.
     const visualMax = size === 16
-      ? (isTablet ? 40 : 42)
-      : (isTablet ? 68 : 72);
+      ? (isTablet ? 44 : 48)
+      : (isTablet ? 82 : 92);
     const visualMin = size === 16 ? 22 : 36;
 
     cellSize = Math.max(visualMin, Math.min(maxByWidth, maxByHeight, visualMax));
@@ -870,12 +924,22 @@ function initGame() {
   state.fixed = state.board.map((row) => row.map((value) => value !== ""));
   state.notes = createEmptyNotes(diff.size);
 
-  updateResponsiveCellSize();
+  // Важно: сначала обновляем DOM, который влияет на высоту/ширину интерфейса,
+  // и только потом считаем размер клеток. Иначе при переключении 9×9 ↔ 16×16
+  // размер поля считался по старой панели цифр/старому заголовку и начинал прыгать.
   updateBoardTexts();
   renderDifficultyList();
   renderProgress();
-  renderBoard();
   renderNumberPad();
+  updateResponsiveCellSize();
+  renderBoard();
+
+  // Второй проход после фактической раскладки браузером. Это убирает расхождение
+  // между первым запуском сложности и повторным нажатием на ту же сложность.
+  requestAnimationFrame(() => {
+    updateResponsiveCellSize();
+    renderBoard();
+  });
 }
 
 function updateBoardTexts() {
@@ -914,6 +978,13 @@ function renderDifficultyList() {
     `;
     btn.addEventListener("click", () => {
       if (!unlocked) return;
+
+      // Если нажали на уже выбранную сложность — ничего не пересоздаём.
+      // Раньше активная кнопка заново запускала initGame(), генерировала новое поле
+      // и повторно пересчитывала размер. Из-за этого казалось, что интерфейс скачет
+      // даже без реальной смены сложности.
+      if (index === state.difficultyIndex) return;
+
       state.difficultyIndex = index;
       if (state.isEndless && !isCurrentEndlessUnlocked()) {
         state.isEndless = false;
@@ -1706,9 +1777,14 @@ function bindEvents() {
     if (isMobile && !widthChanged) return;
 
     lastResponsiveWidth = currentWidth;
-    updateResponsiveCellSize();
-    renderBoard();
+
+    // Сначала панель цифр, потом размер поля. Иначе при переходе 9×9/16×16
+    // высота панели цифр учитывалась от прошлого режима.
     renderNumberPad();
+    requestAnimationFrame(() => {
+      updateResponsiveCellSize();
+      renderBoard();
+    });
   });
 }
 
@@ -1758,6 +1834,17 @@ async function bootstrapGame() {
   installInteractionGuards();
   bindEvents();
   initGame();
+
+  // Яндекс Игры дорисовывает свои панели/рекламу не всегда синхронно с загрузкой iframe.
+  // Делаем пару мягких пересчётов после старта, чтобы стартовый размер поля совпадал
+  // с размером после первого клика по сложности.
+  [100, 350, 800].forEach((delay) => {
+    window.setTimeout(() => {
+      renderNumberPad();
+      updateResponsiveCellSize();
+      renderBoard();
+    }, delay);
+  });
 
   if (window.YandexStorage) {
     window.YandexStorage.onPause?.(() => pauseGame("platform"));

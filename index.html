@@ -12,81 +12,88 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <div class="brand-wrap">
-        <h1 class="brand" data-i18n="title">Судоку Код Порядка</h1>
-        <p class="subtitle" data-i18n="subtitle">Лёгкая браузерная головоломка с классическим и бесконечным режимом.</p>
-      </div>
+      <div class="brand-row">
+        <div class="brand-wrap">
+          <h1 class="brand" data-i18n="title">Судоку Код Порядка</h1>
+          <p class="subtitle" data-i18n="subtitle">Лёгкая браузерная головоломка с классическим и бесконечным режимом.</p>
+        </div>
 
-      <div class="top-actions">
-        <div class="top-controls">
-          <button id="themeBtn" class="rules-open-btn top-control-btn theme-top-btn" type="button">
+        <div class="utility-controls" aria-label="Настройки">
+          <button id="themeBtn" class="rules-open-btn top-control-btn theme-top-btn" type="button" aria-label="Переключить тему">
+            <span class="control-icon" aria-hidden="true">☾</span>
             <span class="top-control-main" data-i18n="theme">Тема</span>
             <span id="themeBtnBadge" class="top-lang-badge">Тёмная</span>
             <span id="themeBtnMeta" class="visually-hidden"></span>
           </button>
 
-          <button id="rulesBtn" class="rules-open-btn top-control-btn" type="button">
-            <span class="top-control-main" data-i18n="rules">Правила</span>
-          </button>
-
           <button id="langBtn" class="rules-open-btn lang-top-btn top-control-btn" type="button" aria-label="Русский / English">
-            <span class="lang-top-main">RU / EN</span>
-            <span id="langBtnBadge" class="top-lang-badge">RU</span>
+            <span class="lang-segment lang-segment-ru">RU</span>
+            <span class="lang-divider" aria-hidden="true"></span>
+            <span class="lang-segment lang-segment-en">EN</span>
+            <span id="langBtnBadge" class="top-lang-badge visually-hidden">RU</span>
             <span id="langBtnMeta" class="visually-hidden">Русский / English</span>
           </button>
         </div>
+      </div>
 
+      <div class="top-actions">
         <div class="stats">
-          <div class="stat time-stat">
-            <span class="stat-label" data-i18n="time">Время</span>
-            <span id="timeValue" class="stat-value">00:00</span>
-          </div>
-          <div class="stat">
+          <div class="stat life-stat">
+            <span class="stat-icon" aria-hidden="true">❤</span>
             <span id="modeStatLabel" class="stat-label">Жизни</span>
             <span id="modeValue" class="stat-value lives">❤ ❤ ❤</span>
           </div>
-          <div class="stat">
+          <div class="stat coin-stat">
+            <span class="stat-icon" aria-hidden="true">◉</span>
             <span class="stat-label" data-i18n="coins">Монеты</span>
             <span id="coinsValue" class="stat-value">120</span>
           </div>
+          <div class="stat time-stat">
+            <span class="stat-icon" aria-hidden="true">◷</span>
+            <span class="stat-label" data-i18n="time">Время</span>
+            <span id="timeValue" class="stat-value">00:00</span>
+          </div>
+        </div>
+
+        <div class="top-controls">
+          <button id="rulesBtn" class="rules-open-btn top-control-btn rules-chip" type="button">
+            <span class="control-icon" aria-hidden="true">ⓘ</span>
+            <span class="top-control-main" data-i18n="rules">Правила</span>
+          </button>
         </div>
       </div>
     </header>
 
     <section class="game-shell">
       <aside class="side side-left">
-        <div class="side-card">
-          <div class="side-title" data-i18n="difficulty">Сложность</div>
-
-          <div class="side-control-stack">
-            <button id="modeBtn" class="difficulty-item side-wide-btn mode-switch" type="button">
-              <div class="difficulty-main">
-                <div>
-                  <div class="difficulty-name" data-i18n="endlessMode">Бесконечный режим</div>
-                  <div id="modeBtnMeta" class="difficulty-meta">Откроется после 5 побед</div>
-                </div>
-                <div id="modeBtnBadge" class="difficulty-badge">Закрыт</div>
-              </div>
-            </button>
+        <div class="side-card difficulty-card">
+          <div class="side-title side-title-with-icon">
+            <span class="side-title-icon" aria-hidden="true">▦</span>
+            <span data-i18n="difficulty">Сложность</span>
           </div>
-
           <div id="difficultyList" class="difficulty-list"></div>
         </div>
 
-        <div class="side-card">
-          <div class="side-title" data-i18n="progress">Прогресс</div>
+        <div class="side-card progress-card">
+          <div class="side-title side-title-with-icon">
+            <span class="side-title-icon" aria-hidden="true">▰</span>
+            <span data-i18n="progress">Прогресс</span>
+          </div>
           <div id="progressList" class="progress-list"></div>
         </div>
       </aside>
 
       <main class="center">
-        <div class="toolbar">
-          <button id="newGameBtn" class="tool-btn primary" data-i18n="newGame">Новая игра</button>
-          <button id="pauseBtn" class="tool-btn" data-i18n="pause">Пауза</button>
-          <button id="eraseBtn" class="tool-btn" data-i18n="erase">Стереть</button>
-          <button id="clearNotesBtn" class="tool-btn" data-i18n="clearNotes">Очистить заметки</button>
-          <button id="hintBtn" class="tool-btn" data-i18n="hint">Подсказка</button>
-          <button id="surrenderBtn" class="tool-btn subtle" data-i18n="surrender">Сдаться</button>
+        <div class="mode-row">
+
+          <button id="modeBtn" class="mode-switch endless-switch" type="button">
+            <span class="endless-icon" aria-hidden="true">∞</span>
+            <span class="endless-copy">
+              <span class="endless-title" data-i18n="endlessMode">Бесконечный режим</span>
+              <span id="modeBtnMeta" class="endless-meta">Откроется после 5 побед</span>
+            </span>
+            <span id="modeBtnBadge" class="endless-badge">Закрыт</span>
+          </button>
         </div>
 
         <div class="board-head">
@@ -113,6 +120,23 @@
           <button id="notesBtn" class="tool-btn notes-panel-btn" type="button">Заметки: выкл</button>
         </div>
       </main>
+
+      <aside class="side side-right">
+        <div class="side-card actions-card">
+          <div class="side-title side-title-with-icon">
+            <span class="side-title-icon" aria-hidden="true">▣</span>
+            <span data-i18n="actions">Действия</span>
+          </div>
+          <div class="actions-list">
+            <button id="newGameBtn" class="tool-btn primary action-btn" data-i18n="newGame">Новая игра</button>
+            <button id="pauseBtn" class="tool-btn action-btn" data-i18n="pause">Пауза</button>
+            <button id="eraseBtn" class="tool-btn action-btn" data-i18n="erase">Стереть</button>
+            <button id="clearNotesBtn" class="tool-btn action-btn" data-i18n="clearNotes">Очистить заметки</button>
+            <button id="hintBtn" class="tool-btn action-btn" data-i18n="hint">Подсказка</button>
+            <button id="surrenderBtn" class="tool-btn subtle action-btn" data-i18n="surrender">Сдаться</button>
+          </div>
+        </div>
+      </aside>
     </section>
   </div>
 
