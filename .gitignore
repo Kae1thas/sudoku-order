@@ -1,0 +1,9 @@
+# Сначала игнорируем вообще всё
+*
+
+!index.html
+!styles.css
+!game.js
+!yandex-sdk.js
+
+!.gitignore
