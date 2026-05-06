@@ -717,7 +717,7 @@ function updateResponsiveCellSize() {
   const bodyPadding = isMobile ? (isSmallPhone ? 12 : 16) : Math.ceil(viewportWidth * 0.025);
   const centerPadding = isMobile ? 16 : 24;
   const gaps = isDesktopShell ? 14 : 0;
-  const boardChrome = isMobile ? 12 : 22;
+  const boardChrome = isMobile ? 0 : 22;
 
   const fallbackAvailableWidth = Math.max(
     appWidth - bodyPadding - sideColumnWidth - centerPadding - gaps - boardChrome,
@@ -789,14 +789,19 @@ function updateResponsiveCellSize() {
 
   let cellSize;
   if (isMobile) {
-    // На телефоне учитываем высоту тоже, но с маленьким нижним запасом,
-    // чтобы поле не прыгало из-за браузерных панелей.
-    const visualMax = size === 16
-      ? (isSmallPhone ? 24 : (isLargeMobile ? 36 : 30))
-      : (isSmallPhone ? 44 : (isLargeMobile ? 74 : 60));
-    const visualMin = size === 16 ? 18 : (isLargeMobile ? 38 : 32);
-
-    cellSize = Math.max(visualMin, Math.min(maxByWidth, maxByHeight, visualMax));
+    // На мобиле поле должно занимать максимум доступной ширины.
+    // Для 16×16 НЕ ограничиваем размер по высоте: иначе поле становится
+    // крошечным из-за рекламы/панелей Яндекса снизу. Оно должно вписываться
+    // по ширине без горизонтального слайдера.
+    if (size === 16) {
+      const visualMin = 18;
+      const visualMax = isSmallPhone ? 42 : (isLargeMobile ? 52 : 48);
+      cellSize = Math.max(visualMin, Math.min(maxByWidth, visualMax));
+    } else {
+      const visualMax = isSmallPhone ? 52 : (isLargeMobile ? 82 : 70);
+      const visualMin = isLargeMobile ? 40 : 34;
+      cellSize = Math.max(visualMin, Math.min(maxByWidth, maxByHeight, visualMax));
+    }
   } else {
     // На широких экранах поле всё ещё может расти, но теперь не ценой
     // вертикального скролла основных игровых элементов.
@@ -817,15 +822,24 @@ function updateModeButton() {
 
   if (!unlocked) {
     dom.modeBtn.disabled = true;
-    dom.modeBtn.classList.remove("active");
+    dom.modeBtn.classList.remove("active", "paused-locked");
     dom.modeBtn.classList.add("locked");
     dom.modeBtnMeta.textContent = t("opensAfter5Wins");
     dom.modeBtnBadge.textContent = t("locked");
     return;
   }
 
+  if (state.isPaused) {
+    dom.modeBtn.disabled = true;
+    dom.modeBtn.classList.remove("active", "locked");
+    dom.modeBtn.classList.add("paused-locked");
+    dom.modeBtnMeta.textContent = t("resume");
+    dom.modeBtnBadge.textContent = t("pause");
+    return;
+  }
+
   dom.modeBtn.disabled = false;
-  dom.modeBtn.classList.remove("locked");
+  dom.modeBtn.classList.remove("locked", "paused-locked");
   dom.modeBtnMeta.textContent = t("noLivesCheckAtEnd");
 
   if (state.isEndless) {
@@ -915,6 +929,7 @@ function initGame() {
   updateThemeButton();
   updateLanguageButton();
   updatePauseButton();
+  updateActionButtons();
   updateSecondaryStat();
   stopTimer();
 
@@ -966,7 +981,8 @@ function renderDifficultyList() {
     const unlocked = isDifficultyUnlocked(index);
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = `difficulty-item ${index === state.difficultyIndex ? "active" : ""} ${unlocked ? "" : "locked"}`;
+    btn.className = `difficulty-item ${index === state.difficultyIndex ? "active" : ""} ${unlocked ? "" : "locked"} ${state.isPaused ? "paused-locked" : ""}`;
+    btn.disabled = state.isPaused;
     btn.innerHTML = `
       <div class="difficulty-main">
         <div>
@@ -977,6 +993,7 @@ function renderDifficultyList() {
       </div>
     `;
     btn.addEventListener("click", () => {
+      if (state.isPaused) return;
       if (!unlocked) return;
 
       // Если нажали на уже выбранную сложность — ничего не пересоздаём.
@@ -1188,6 +1205,22 @@ function updatePauseButton() {
   dom.pauseBtn.classList.toggle("active", state.isPaused);
 }
 
+function updateActionButtons() {
+  const disabled = state.isPaused;
+
+  [
+    dom.newGameBtn,
+    dom.eraseBtn,
+    dom.clearNotesBtn,
+    dom.hintBtn,
+    dom.surrenderBtn,
+  ].forEach((button) => {
+    if (!button) return;
+    button.disabled = disabled;
+    button.classList.toggle("paused-locked", disabled);
+  });
+}
+
 function showNotification(message, type = "warning") {
   if (!dom.notification) return;
 
@@ -1218,7 +1251,10 @@ function pauseGame(reason = "manual") {
   stopTimer();
   setGameplayActive(false);
   updatePauseButton();
+  updateActionButtons();
   updateNotesButton();
+  updateModeButton();
+  renderDifficultyList();
   dom.boardWrap?.classList.add("paused");
 }
 
@@ -1231,7 +1267,10 @@ function resumeGame(reason = "manual") {
     setGameplayActive(true);
   }
   updatePauseButton();
+  updateActionButtons();
   updateNotesButton();
+  updateModeButton();
+  renderDifficultyList();
   dom.boardWrap?.classList.remove("paused");
 }
 
@@ -1607,6 +1646,8 @@ function goToNextDifficulty() {
 }
 
 function toggleGameMode() {
+  if (state.isPaused) return;
+
   if (!isCurrentEndlessUnlocked()) {
     const diff = getCurrentDifficulty();
     showNotification(t("endlessLockedMessage", getDifficultyTitle(diff)), "warning");
@@ -1700,7 +1741,10 @@ function bindEvents() {
     renderBoard();
   });
 
-  dom.newGameBtn.addEventListener("click", initGame);
+  dom.newGameBtn.addEventListener("click", () => {
+    if (state.isPaused) return;
+    initGame();
+  });
   dom.pauseBtn?.addEventListener("click", togglePause);
   dom.modeBtn.addEventListener("click", toggleGameMode);
   dom.langBtn?.addEventListener("click", toggleLanguage);
@@ -1711,10 +1755,22 @@ function bindEvents() {
     applyTheme(current === "light" ? "dark" : "light");
   });
 
-  dom.eraseBtn.addEventListener("click", eraseSelected);
-  dom.clearNotesBtn.addEventListener("click", clearSelectedNotes);
-  dom.hintBtn.addEventListener("click", useHint);
-  dom.surrenderBtn.addEventListener("click", surrenderGame);
+  dom.eraseBtn.addEventListener("click", () => {
+    if (state.isPaused) return;
+    eraseSelected();
+  });
+  dom.clearNotesBtn.addEventListener("click", () => {
+    if (state.isPaused) return;
+    clearSelectedNotes();
+  });
+  dom.hintBtn.addEventListener("click", () => {
+    if (state.isPaused) return;
+    useHint();
+  });
+  dom.surrenderBtn.addEventListener("click", () => {
+    if (state.isPaused) return;
+    surrenderGame();
+  });
 
   dom.buyLifeBtn.addEventListener("click", buyLife);
   dom.restartFromLoseBtn.addEventListener("click", initGame);
