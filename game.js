@@ -303,6 +303,8 @@ const state = {
   debugUnlockAll: false,
 };
 
+let suppressCellClickUntil = 0;
+
 const dom = {
   board: document.getElementById("board"),
   boardWrap: document.getElementById("boardWrap"),
@@ -1114,6 +1116,7 @@ function renderBoard() {
       }
 
       cell.addEventListener("click", () => {
+        if (Date.now() < suppressCellClickUntil) return;
         if (state.isPaused || state.gameOver) return;
         state.selected = { row, col };
         renderBoard();
@@ -1679,27 +1682,96 @@ function initTheme() {
   applyTheme(saved);
 }
 
-function isScrollableElement(element, deltaY) {
-  let node = element;
+function installUniversalAppScrollBridge() {
+  const scrollHost = document.querySelector(".app") || document.scrollingElement || document.documentElement;
+  if (!scrollHost) return;
 
-  while (node && node !== document.body && node !== document.documentElement) {
-    const style = window.getComputedStyle(node);
-    const canScrollY = /(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight;
+  let startX = 0;
+  let startY = 0;
+  let lastY = 0;
+  let isTracking = false;
+  let didScroll = false;
+  let trackingTarget = null;
 
-    if (canScrollY) {
-      if (deltaY < 0 && node.scrollTop > 0) return true;
-      if (deltaY > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 1) return true;
+  const shouldIgnoreTarget = (target) => {
+    // Модальные окна живут вне .app и имеют собственные карточки/скролл.
+    // Основная задача фикса — чтобы внутри игрового экрана не было "мёртвых" зон для свайпа.
+    return !!target.closest?.(".modal, .overlay, input, textarea, select");
+  };
+
+  const startTracking = (event) => {
+    if (event.touches.length !== 1 || shouldIgnoreTarget(event.target)) {
+      isTracking = false;
+      trackingTarget = null;
+      return;
     }
 
-    node = node.parentElement;
-  }
+    const touch = event.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    lastY = touch.clientY;
+    isTracking = true;
+    didScroll = false;
+    trackingTarget = event.target;
+  };
 
-  return false;
+  const moveTracking = (event) => {
+    if (!isTracking || event.touches.length !== 1) return;
+
+    const touch = event.touches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    // Маленькое движение оставляем обычным тапом, чтобы клетки и кнопки не ощущались "ватными".
+    if (absY < 6) return;
+
+    // Горизонтальный жест не считаем прокруткой страницы.
+    if (absX > absY * 1.15) return;
+
+    const deltaY = lastY - touch.clientY;
+    lastY = touch.clientY;
+
+    // Прокручиваем именно внутренний игровой контейнер, а не body/window.
+    // Так нет системного скролла, pull-to-refresh и одновременно нет запретных мест для свайпа.
+    scrollHost.scrollTop += deltaY;
+    didScroll = true;
+    suppressCellClickUntil = Date.now() + 450;
+
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+  };
+
+  const finishTracking = () => {
+    if (didScroll) {
+      suppressCellClickUntil = Date.now() + 450;
+    }
+
+    isTracking = false;
+    didScroll = false;
+    trackingTarget = null;
+  };
+
+  // capture=true: свайп ловится раньше клеток, боковых пустых областей, кнопок и карточек.
+  scrollHost.addEventListener("touchstart", startTracking, { passive: true, capture: true });
+  scrollHost.addEventListener("touchmove", moveTracking, { passive: false, capture: true });
+  scrollHost.addEventListener("touchend", finishTracking, { passive: true, capture: true });
+  scrollHost.addEventListener("touchcancel", finishTracking, { passive: true, capture: true });
+
+  // Если свайп начался на кнопке/клетке, Android после touchend иногда всё равно отдаёт click.
+  // Гасим только клик сразу после реального свайпа, обычные тапы не трогаем.
+  document.addEventListener("click", (event) => {
+    if (Date.now() < suppressCellClickUntil) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
 }
 
 function installInteractionGuards() {
   const guardedSelector = ".app, .modal, .overlay, .notification";
-  let touchStartY = 0;
 
   ["contextmenu", "selectstart", "dragstart"].forEach((eventName) => {
     document.addEventListener(eventName, (event) => {
@@ -1709,27 +1781,10 @@ function installInteractionGuards() {
     }, { capture: true });
   });
 
-  document.addEventListener("touchstart", (event) => {
-    if (event.touches.length === 1) {
-      touchStartY = event.touches[0].clientY;
-    }
-  }, { passive: false, capture: true });
-
-  document.addEventListener("touchmove", (event) => {
-    if (event.touches.length !== 1) {
-      event.preventDefault();
-      return;
-    }
-
-    const currentY = event.touches[0].clientY;
-    const deltaY = touchStartY - currentY;
-    const scrollable = isScrollableElement(event.target, deltaY);
-
-    if (!scrollable) {
-      event.preventDefault();
-    }
-  }, { passive: false, capture: true });
-
+  // Важно для модерации Яндекс Игр на Android в альбомной ориентации:
+  // не блокируем одиночный touchmove на document. Иначе свайп по полю ломает прокрутку.
+  // Для самого поля включён отдельный bridge: вертикальный свайп по клеткам крутит .app.
+  installUniversalAppScrollBridge();
   document.addEventListener("gesturestart", (event) => event.preventDefault(), { passive: false });
 }
 
